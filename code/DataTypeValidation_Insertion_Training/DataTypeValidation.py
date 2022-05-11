@@ -5,13 +5,13 @@ from cassandra.policies import ConstantSpeculativeExecutionPolicy
 from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.concurrent import execute_concurrent_with_args
-from os import listdir
 import os
 import json
 import csv
 import queue
 import time
 import pandas as pd
+import decimal
 from application_logging.logger import App_Logger
 
 
@@ -76,14 +76,28 @@ class dBOperation:
 
             auth_provider = PlainTextAuthProvider(db_id, db_pass)
 
-            # speculative execution policy
-            sepolicy = ExecutionProfile(
+            # make a execution profile with pandas row factory and no timeout, used in exporting to csv
+            def pandas_factory(colnames, rows):
+                return pd.DataFrame(rows, columns=colnames)
+
+            pandaspolicy = ExecutionProfile(
                 speculative_execution_policy=ConstantSpeculativeExecutionPolicy(delay=.5, max_attempts=10),
-                request_timeout=30
+                request_timeout=None,
+                row_factory=pandas_factory
             )
 
+            sepolicy = ExecutionProfile(
+                speculative_execution_policy=ConstantSpeculativeExecutionPolicy(delay=.5, max_attempts=10),
+                request_timeout=30,
+            )
+
+            profiles = {
+                EXEC_PROFILE_DEFAULT: sepolicy,
+                'pandas_profile': pandaspolicy
+            }
+
             cluster = Cluster(cloud=cloud_config, auth_provider=auth_provider, connect_timeout=20,
-                              execution_profiles={EXEC_PROFILE_DEFAULT: sepolicy})
+                              execution_profiles=profiles)
             self.logger.log(file, f"Attemption to open database {DatabaseName}.")
             conn = cluster.connect(DatabaseName)
             self.logger.log(file, "Opened %s database successfully" % DatabaseName)
@@ -241,7 +255,7 @@ class dBOperation:
         else:
             # self.logger.log(file, "Successfully created new tables.")
             log_file.close()
-            return conn
+            return conn  # column names contains the schema file
 
     def insertIntoTableGoodData(self, Database, timeout_retry=True):
 
@@ -331,7 +345,8 @@ class dBOperation:
 
                 # start insertion
                 for value in params:
-                    future = conn.execute_async(insert_prep, value)
+                    value_decimal = [decimal.Decimal(str(k)) for k in value]
+                    future = conn.execute_async(insert_prep, value_decimal)
                     try:
                         future_q.put_nowait(future)
                     except queue.Full:
@@ -389,7 +404,7 @@ class dBOperation:
         else:
             self.logger.log(log_file, "All files are inserted successfully.")
             log_file.close()
-            return conn
+            return conn, column_names
 
         # self.logger.log(log_file, 'An unexpected error has occurred while trying to upload files to database.')
         # raise Exception('An unexpected error has occurred while trying to upload files to database.')
@@ -414,18 +429,29 @@ class dBOperation:
             self.logger.log(log_file, "Connecting to database...")
             if flush:
                 self.logger.log(log_file, "Flush is True, flush old tables and initiate database insertion.")
-                conn = self.insertIntoTableGoodData(Database)
+                conn, column_names = self.insertIntoTableGoodData(Database)  # column names is the schema dictionary
                 self.logger.log(log_file, "Database insertion completed.")
             else:
                 self.logger.log(log_file, "Flush is False, so program will pull existing tables without insertion")
                 conn = self.dataBaseConnection(Database)
-                self.logger.log(log_file, "Connection established.")
+                # self.logger.log(log_file, "Connection established.")
+                self.logger.log(log_file, "Manually fetching column names from schema file.")
+                # manually fetch column names, if fetched from database col names can be out of order
+                if not os.path.isfile('./schema_training.json'):
+                    error = FileNotFoundError('Required schema file schema_training.json not found in current directory.')
+                    self.logger.log(log_file, f"Error: {error}")
+                    raise error
+
+                with open('./schema_training.json', 'r') as f:
+                    dic = json.load(f)
+                    column_names = dic['ColName']
+                self.logger.log(log_file, 'Sucessfully fetched column names from schema file')
 
             if conn is None:
                 error = ConnectionError('Connection failed, check relevant logs in log directory. Aborting!')
                 self.logger.log(log_file, error)
                 raise error
-
+            self.logger.log(log_file, "Connection established to database. Now begin reading tables.")
             # fetch existing tables from database
             stmt = f"SELECT table_name FROM system_schema.tables WHERE keyspace_name='{Database}'"
             stmt = SimpleStatement(stmt)
@@ -465,49 +491,89 @@ class dBOperation:
             self.logger.log(log_file, 'Output directory configured successfully!')
 
             self.logger.log(log_file, "Writing all relevant tables to csv files.")
+
+            # conn.default_fetch_size = None  # fetch all results at once disable paging
+
             for name in tables_exist:
+
+                select_stmt = f"SELECT * FROM {Database}.{name} WHERE unit_nr=? ORDER BY time_cycles ASC"
+                select_prep = conn.prepare(select_stmt)
+                select_prep.is_idempotent = True
+                select_prep.consistency_level = ConsistencyLevel.ONE  # set low consistency level
+                select_prep.fetch_size = None  # fetch all results at once disable paging
+
                 # choose file name
                 file_name = 'train_input_' + name.split('_')[1] + '.csv'
                 self.logger.log(log_file, f"Writing table {name} to {file_name}")
 
-                with open(os.path.join(self.fileFromDb, file_name), 'w+', newline='', encoding='utf-8') as csvfile:
-                    # prepare select statement
-                    select_stmt = f"SELECT * FROM {Database}.{name} WHERE unit_nr=? ORDER BY time_cycles ASC"
-                    select_prep = conn.prepare(select_stmt)
-                    select_prep.consistency_level = ConsistencyLevel.ONE
-                    select_prep.is_idempotent = True
 
-                    # writer object
-                    writer = csv.writer(csvfile, delimiter=',')
+                conc_level = 1000
+                params = [(k,) for k in range(1, 101)]
 
-                    params = [(k,) for k in range(1, 101)]
-                    res_set = execute_concurrent_with_args(conn, select_prep, params, concurrency=1000)
+                # starting writing
+                start = time.time()
+                future_q = queue.Queue(maxsize=conc_level)
 
-                    write_header = True  # write header flag
-                    for (success, result) in res_set:
-                        if not success:
-                            conn.shutdown()
-                            self.logger.log(log_file,
-                                            f"An error occurred in writing table {name} to csv file: {result}")
-                            if timeout_retry:
-                                self.logger.log(log_file, f"Retrying importing csv from table {name}")
-                                return self.selectingDatafromtableintocsv(Database, timeout_retry=False, flush=flush)
-                            else:
-                                self.logger.log(log_file,
-                                                f"Failed to write table {name} to csv file: {result} Quitting")
-                                log_file.close()
-                                raise result
-                        else:
-                            if write_header:  # write header
-                                header = result.column_names
-                                writer.writerow(header)
-                                write_header = False  # make sure we write header only the first time
+                # datafram to hold results
+                df = pd.DataFrame()
 
-                            writer.writerows(result)
-                    else:
-                        self.logger.log(log_file, f"Completed writing table {name} to file {file_name}.")
+                for value in params:
+                    future = conn.execute_async(select_prep, value, execution_profile='pandas_profile')
+                    try:
+                        future_q.put_nowait(future)
+                    except queue.Full:
+                        # clear queue
+                        while True:
+                            try:
+                                r = future_q.get_nowait().result()
+                                df = pd.concat([df, r._current_rows], ignore_index=True)
+                            except queue.Empty:
+                                break
+                        future_q.put_nowait(future)
+                else:
+                    while True:
+                        try:
+                            r = future_q.get_nowait().result()
+                            df = pd.concat([df, r._current_rows], ignore_index=True)
+                        except queue.Empty:
+                            break
+
+                    df = df[list(column_names.keys())]
+                    df.to_csv(os.path.join(self.fileFromDb, file_name), index=False)
+                    end = time.time()
+                    self.logger.log(log_file, f"Finished writing {name} to {file_name} in {int(end-start)} seconds.")
+                res_set = execute_concurrent_with_args(conn, select_prep, params, concurrency=1000)
+
             else:
-                self.logger.log(log_file, f"Completed writing all tables to csv files.")
+                self.logger.log(log_file, "Successfully wrote all tables to csv files.")
+
+
+            #     # result dataframe
+            #     df = pd.DataFrame()
+            #
+            #     for (success, result) in res_set:
+            #         if not success:
+            #             conn.shutdown()
+            #             self.logger.log(log_file,
+            #                             f"An error occurred in writing table {name} to csv file: {result}")
+            #             if timeout_retry:
+            #                 self.logger.log(log_file, f"Retrying importing csv from table {name}")
+            #                 return self.selectingDatafromtableintocsv(Database, timeout_retry=False, flush=flush)
+            #             else:
+            #                 self.logger.log(log_file,
+            #                                 f"Failed to write table {name} to csv file: {result} Quitting")
+            #                 log_file.close()
+            #                 raise result
+            #
+            #         else:
+            #             df = pd.concat([df, result._current_rows], ignore_index=True)
+            #     else:
+            #         df = df[list(column_names.keys())]
+            #         df.to_csv(path=os.path.join(self.fileFromDb, file_name), index=False)
+            #
+            #         self.logger.log(log_file, f"Completed writing table {name} to file {file_name}.")
+            # else:
+            #     self.logger.log(log_file, f"Completed writing all tables to csv files.")
 
         except (OperationTimedOut, Timeout) as timeout:
             self.logger.log(log_file, f'Operation timed out while writing tables: str{timeout}', )
