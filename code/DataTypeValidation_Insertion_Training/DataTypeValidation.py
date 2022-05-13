@@ -136,9 +136,10 @@ class dBOperation:
         """
         table_name_list = ['goodrawdata_00' + str(k) for k in range(1, 5)]
         conn = None  # because we must define conn outside try statement
+        log_file = open("Training_Logs/DbTableCreateLog.txt", 'a+')
         try:
 
-            log_file = open("Training_Logs/DbTableCreateLog.txt", 'a+')
+            # log_file = open("Training_Logs/DbTableCreateLog.txt", 'a+')
             self.logger.log(log_file, 'Initialise table creation')
             self.logger.log(log_file, 'Connecting to database.')
             conn = self.dataBaseConnection(DatabaseName)
@@ -216,7 +217,6 @@ class dBOperation:
         #        del future2
 
         except (OperationTimedOut, Timeout) as timeout:
-            log_file = open("Training_Logs/DbTableCreateLog.txt", 'a+')
             self.logger.log(log_file, f'Operation timed out while creating tables: str{timeout}')
             # retry
             if conn is not None:
@@ -230,7 +230,6 @@ class dBOperation:
                 raise timeout
 
         except Unavailable as unavailable:
-            log_file = open("Training_Logs/DbTableCreateLog.txt", 'a+')
             self.logger.log(log_file, f'Error: Nodes unavailable while creating tables: {unavailable}', )
             # retry
             if conn is not None:
@@ -542,38 +541,10 @@ class dBOperation:
                     df.to_csv(os.path.join(self.fileFromDb, file_name), index=False)
                     end = time.time()
                     self.logger.log(log_file, f"Finished writing {name} to {file_name} in {int(end-start)} seconds.")
-                res_set = execute_concurrent_with_args(conn, select_prep, params, concurrency=1000)
+                # res_set = execute_concurrent_with_args(conn, select_prep, params, concurrency=1000)
 
             else:
                 self.logger.log(log_file, "Successfully wrote all tables to csv files.")
-
-
-            #     # result dataframe
-            #     df = pd.DataFrame()
-            #
-            #     for (success, result) in res_set:
-            #         if not success:
-            #             conn.shutdown()
-            #             self.logger.log(log_file,
-            #                             f"An error occurred in writing table {name} to csv file: {result}")
-            #             if timeout_retry:
-            #                 self.logger.log(log_file, f"Retrying importing csv from table {name}")
-            #                 return self.selectingDatafromtableintocsv(Database, timeout_retry=False, flush=flush)
-            #             else:
-            #                 self.logger.log(log_file,
-            #                                 f"Failed to write table {name} to csv file: {result} Quitting")
-            #                 log_file.close()
-            #                 raise result
-            #
-            #         else:
-            #             df = pd.concat([df, result._current_rows], ignore_index=True)
-            #     else:
-            #         df = df[list(column_names.keys())]
-            #         df.to_csv(path=os.path.join(self.fileFromDb, file_name), index=False)
-            #
-            #         self.logger.log(log_file, f"Completed writing table {name} to file {file_name}.")
-            # else:
-            #     self.logger.log(log_file, f"Completed writing all tables to csv files.")
 
         except (OperationTimedOut, Timeout) as timeout:
             self.logger.log(log_file, f'Operation timed out while writing tables: str{timeout}', )
