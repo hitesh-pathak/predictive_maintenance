@@ -144,10 +144,6 @@ class dBOperation:
             self.logger.log(log_file, 'Connecting to database.')
             conn = self.dataBaseConnection(DatabaseName)
             self.logger.log(log_file, 'Connection established')
-            # create prepared statements for optimisation
-            # find_stmt = "SELECT COUNT(table_name) FROM system_schema.tables \
-            #                        WHERE keyspace_name={DatabaseName} AND table_name=?"
-            # find_prep = conn.prepare(find_stmt)
 
             # create the schema same for all tables
             table_schema = ''
@@ -175,13 +171,20 @@ class dBOperation:
                 self.logger.log(log_file, "Successfully dropped old tables.")
                 del future1
 
+            # check for metadata table
+            del_meta = f'DROP TABLE IF EXISTS {DatabaseName}.training_meta_data'
+            del_meta = SimpleStatement(del_meta)
+            del_meta.is_idempotent = True
+            conn.execute(del_meta)
+            self.logger.log(log_file, "Old meta data table also dropped")
+
             # find relevant table names to create according to good data files
             self.logger.log(log_file, "Creating new tables")
             table_exist = set()
             for file in os.listdir(self.goodFilePath):
                 k = file.split('.')[0][-1]
                 if k in list('1234'):  # only certain tables are allowed
-                    table_exist.add('goodrawdata_00'+k)
+                    table_exist.add('goodrawdata_00' + k)
 
                 else:  # that's a bad file!
                     self.logger.log(log_file, f"Found bad file {file}. Move to bad data directory.")
@@ -205,16 +208,16 @@ class dBOperation:
                 create_stmt.consistency_level = ConsistencyLevel.ONE
                 conn.execute(create_stmt)
                 self.logger.log(log_file, f"Created {name} successfully.")
-                # print(f'done for {name}')
-                # future2.append(conn.execute_async(create_stmt))
             else:
                 self.logger.log(log_file, "Created new tables.")
 
-        #    for res in future2:
-        #        res.result()
-        #    else:
-        #        self.logger.log(file, 'New tables created successfully!!')
-        #        del future2
+            # create meta table as well, meta table contains data about the tables
+            stmt = f"CREATE TABLE {DatabaseName}.training_meta_data " + \
+                   "(table_name VARCHAR, unit_nr_range INT, total_rows INT, PRIMARY KEY (table_name))"
+            query = SimpleStatement(stmt)
+            self.logger.log(log_file, "Creating meta data table training_meta_data.")
+            conn.execute(query)
+            self.logger.log(log_file, "Meta data table created.")
 
         except (OperationTimedOut, Timeout) as timeout:
             self.logger.log(log_file, f'Operation timed out while creating tables: str{timeout}')
@@ -230,7 +233,7 @@ class dBOperation:
                 raise timeout
 
         except Unavailable as unavailable:
-            self.logger.log(log_file, f'Error: Nodes unavailable while creating tables: {unavailable}', )
+            self.logger.log(log_file, f'Error: Nodes unavailable while creating tables: {unavailable}')
             # retry
             if conn is not None:
                 conn.shutdown()
@@ -260,9 +263,12 @@ class dBOperation:
 
         """
                                Method Name: insertIntoTableGoodData
+
                                Description: This method inserts the Good data files from the
                                             Good_Raw folder into database tables.
+
                                Output: connection object
+
                                On Failure: Raise Exception
         """
         log_file = open("Training_Logs/DbInsertLog.txt", 'a+')
@@ -285,10 +291,28 @@ class dBOperation:
             self.logger.log(log_file, error)
             raise error
 
+        self.logger.log(log_file, 'Verifying existence of meta data table.')
+        check_meta = "SELECT table_name FROM system_schema.tables " + \
+                      f"WHERE keyspace_name='{Database}' AND table_name='training_meta_data'"
+        check_meta = SimpleStatement(check_meta)
+        check_meta.is_idempotent = True
+        ismeta = conn.execute(check_meta)
+        if not ismeta[0].table_name == 'training_meta_data':
+            self.logger.log(log_file, 'Required metadata table not found in database.')
+            conn.shutdown()
+            if timeout_retry:
+                self.logger.log(log_file, 'Retrying....!')
+                return self.insertIntoTableGoodData(Database=Database, timeout_retry=False)
+            else:
+                error = Exception('Required metadata table not found in database.')
+                self.logger.log(log_file, f'Error: {error}')
+                raise error
+        self.logger.log(log_file, "Required metadata table exists.")
+
         goodFilePath = self.goodFilePath
         badFilePath = self.badFilePath
         onlyfiles = [f for f in os.listdir(self.goodFilePath)
-                  if os.path.isfile(os.path.join(self.goodFilePath, f))]
+                     if os.path.isfile(os.path.join(self.goodFilePath, f))]
         # count = 1
         conc_level = 5000
 
@@ -335,8 +359,11 @@ class dBOperation:
 
                 # load file into pandas
                 data = pd.read_csv(goodFilePath + '/' + file, sep=r'\s+', header=None)
-                params = zip(*[data[c] for c in range(data.shape[1])])  # list of all rows
+
+                params = zip(*[data[c] for c in range(data.shape[1])])
                 total_queries = data.shape[0]
+                # used later
+                unit_nr_range = data[0].unique().size
 
                 # set up queue and start timer
                 start = time.time()
@@ -368,6 +395,15 @@ class dBOperation:
                     end = time.time()
                     self.logger.log(log_file, f"Finished uploading {file} {total_queries} queries with a " +
                                     f"concurrency level of {conc_level} in {int(end - start)} seconds.")
+
+                    # now insert a metadata table too
+                    self.logger.log(log_file, f"Uploading meta data for table {table_name}.")
+                    meta_insrt = "INSERT INTO training_meta_data (table_name, unit_nr_range, total_rows) VALUES " + \
+                        f"('{table_name}', {unit_nr_range}, {total_queries})"
+                    meta_insrt = SimpleStatement(meta_insrt)
+
+                    conn.execute(meta_insrt)
+                    self.logger.log(log_file, "Uploaded table metadata.")
 
             except (Timeout, OperationTimedOut) as timeout:
                 self.logger.log(log_file, f'Operation timed out while uploading {file} str{timeout}', )
@@ -405,9 +441,6 @@ class dBOperation:
             log_file.close()
             return conn, column_names
 
-        # self.logger.log(log_file, 'An unexpected error has occurred while trying to upload files to database.')
-        # raise Exception('An unexpected error has occurred while trying to upload files to database.')
-
     def selectingDatafromtableintocsv(self, Database, timeout_retry=True, flush=True):
 
         """
@@ -428,7 +461,9 @@ class dBOperation:
             self.logger.log(log_file, "Connecting to database...")
             if flush:
                 self.logger.log(log_file, "Flush is True, flush old tables and initiate database insertion.")
-                conn, column_names = self.insertIntoTableGoodData(Database)  # column names is the schema dictionary
+
+                # column names is the schema dictionary
+                conn, column_names = self.insertIntoTableGoodData(Database)
                 self.logger.log(log_file, "Database insertion completed.")
             else:
                 self.logger.log(log_file, "Flush is False, so program will pull existing tables without insertion")
@@ -437,21 +472,24 @@ class dBOperation:
                 self.logger.log(log_file, "Manually fetching column names from schema file.")
                 # manually fetch column names, if fetched from database col names can be out of order
                 if not os.path.isfile('./schema_training.json'):
-                    error = FileNotFoundError('Required schema file schema_training.json not found in current directory.')
+                    error = FileNotFoundError(
+                        'Required schema file schema_training.json not found in current directory.')
                     self.logger.log(log_file, f"Error: {error}")
                     raise error
 
                 with open('./schema_training.json', 'r') as f:
                     dic = json.load(f)
                     column_names = dic['ColName']
-                self.logger.log(log_file, 'Sucessfully fetched column names from schema file')
+                self.logger.log(log_file, 'Successfully fetched column names from schema file')
 
             if conn is None:
                 error = ConnectionError('Connection failed, check relevant logs in log directory. Aborting!')
                 self.logger.log(log_file, error)
                 raise error
+
             self.logger.log(log_file, "Connection established to database. Now begin reading tables.")
             # fetch existing tables from database
+
             stmt = f"SELECT table_name FROM system_schema.tables WHERE keyspace_name='{Database}'"
             stmt = SimpleStatement(stmt)
             stmt.is_idempotent = True
@@ -491,9 +529,24 @@ class dBOperation:
 
             self.logger.log(log_file, "Writing all relevant tables to csv files.")
 
-            # conn.default_fetch_size = None  # fetch all results at once disable paging
+            conn.default_fetch_size = None  # fetch all results at once disable paging
 
             for name in tables_exist:
+                # fetch meta data
+                self.logger.log(log_file, f"Loading metadata for table {name}.")
+                get_meta = \
+                    f"SELECT unit_nr_range,total_rows FROM {Database}.training_meta_data WHERE table_name='{name}'"
+                get_meta = SimpleStatement(get_meta)
+                get_meta.is_idempotent = True
+                metadata = conn.execute(get_meta)
+                self.logger.log(log_file, "Metadata loaded.")
+
+                # assign attributes from metadata
+                try:
+                    unit_nr_range, total_rows = metadata[0]
+                except Exception as e:
+                    self.logger.log(log_file, f"Error occurred in meta data processing: {e}")
+                    raise e
 
                 select_stmt = f"SELECT * FROM {Database}.{name} WHERE unit_nr=? ORDER BY time_cycles ASC"
                 select_prep = conn.prepare(select_stmt)
@@ -505,9 +558,11 @@ class dBOperation:
                 file_name = 'train_input_' + name.split('_')[1] + '.csv'
                 self.logger.log(log_file, f"Writing table {name} to {file_name}")
 
+                # find the corresponding training data file
 
                 conc_level = 1000
-                params = [(k,) for k in range(1, 101)]
+
+                params = [(k,) for k in range(1, unit_nr_range+1)]
 
                 # starting writing
                 start = time.time()
@@ -538,10 +593,14 @@ class dBOperation:
                             break
 
                     df = df[list(column_names.keys())]
+                    self.logger.log(log_file, 'Verifying against meta data.')
+                    if not df.shape[0] == total_rows:
+                        self.logger.log(log_file,
+                                        f'Warn: Verification failed for table {name}, please check the received file.')
+
                     df.to_csv(os.path.join(self.fileFromDb, file_name), index=False)
                     end = time.time()
-                    self.logger.log(log_file, f"Finished writing {name} to {file_name} in {int(end-start)} seconds.")
-                # res_set = execute_concurrent_with_args(conn, select_prep, params, concurrency=1000)
+                    self.logger.log(log_file, f"Finished writing {name} to {file_name} in {int(end - start)} seconds.")
 
             else:
                 self.logger.log(log_file, "Successfully wrote all tables to csv files.")
