@@ -1,18 +1,15 @@
 """
-This is the Entry point for Training the Machine Learning Model.SSS
+This is the Entry point for Training the Machine Learning Model.
 """
 # Doing the necessary imports
 import os
-
 from sklearn.model_selection import train_test_split
 from data_ingestion import data_loader
 from data_preprocessing import preprocessing
-# from data_preprocessing import clustering
-# from best_model_finder import tuner
-# from file_operations import file_methods
+from data_preprocessing import clustering
+from best_model_finder import tuner
+from file_operations import file_methods
 from application_logging import logger
-
-#Creating the common Logging object
 
 
 class trainModel:
@@ -36,21 +33,22 @@ class trainModel:
                 self.log_writer.log(self.file_object, 'Data ingestion completed.')
 
                 for data, filename in datagen():
+                    filename = filename.split('.')[0]  # redifine filename without the .csv part!
                     """doing the data preprocessing"""
                     self.log_writer.log(self.file_object, f"Loaded data from {filename}.")
 
                     self.log_writer.log(self.file_object, "Initialize Preprocessor class.")
                     preprocessor = preprocessing.Preprocessor(self.file_object,self.log_writer)
 
-                    self.log_writer.log(self.file_object, "Dropping columns with zero standard deviation.")
-                    data = preprocessor.drop_columns_with_zero_std_deviation(data)
-
                     self.log_writer.log(self.file_object, "Dropping redundant setting columns.")
                     data = preprocessor.drop_redundant_settings(data)
 
+                    self.log_writer.log(self.file_object, "Dropping columns with zero standard deviation.")
+                    data = preprocessor.drop_columns_with_zero_std_deviation(data)
+
                     # impute null values
                     self.log_writer.log(self.file_object, "Checking data for null values.")
-                    if preprocessor.is_null_present(data):
+                    if preprocessor.is_null_present(data, filename):
                         self.log_writer.log(self.file_object,
                                             "Data contains columns with null values, imputing null values")
 
@@ -62,59 +60,59 @@ class trainModel:
                     self.log_writer.log(self.file_object, "Adding remaining useful life column to data.")
                     data = preprocessor.add_remaining_useful_life(data)
 
-                    print(data.shape, data.columns)
-                    print(data)
-                    print('.' * 20)
+                    X = data.drop(['RUL'], axis=1)
+                    Y = data['RUL']
 
-            #
+                    """ Applying the clustering approach"""
 
-                # X = data.drop(['class'], axis=1)
-                # Y = data['class']
-                #
-                # """ Applying the clustering approach"""
-                #
-            #     kmeans=clustering.KMeansClustering(self.file_object,self.log_writer)  # object initialization.
-            #     number_of_clusters=kmeans.elbow_plot(X)  # using the elbow plot to find the number of optimum clusters
-            #
-            #     # Divide the data into clusters
-            #     X = kmeans.create_clusters(X,number_of_clusters)
-            #
-            #     # create a new column in the dataset consisting of the corresponding cluster assignments.
-            #     X['Labels']=Y
-            #
-            #     # getting the unique clusters from our dataset
-            #     list_of_clusters=X['Cluster'].unique()
-            #
-            #     """parsing all the clusters and looking for the best ML algorithm to fit on individual cluster"""
-            #
-            #     for i in list_of_clusters:
-            #         cluster_data=X[X['Cluster']==i] # filter the data for one cluster
-            #
-            #         # Prepare the feature and Label columns
-            #         cluster_features=cluster_data.drop(['Labels','Cluster'],axis=1)
-            #         cluster_label= cluster_data['Labels']
-            #
-            #         # splitting the data into training and test set for each cluster one by one
-            #         x_train, x_test, y_train, y_test = train_test_split(cluster_features, cluster_label, test_size=1 / 3, random_state=355)
-            #         x_train = preprocessor.scaleData(x_train)
-            #         x_test = preprocessor.scaleData(x_test)
-            #
-            #         model_finder=tuner.Model_Finder(self.file_object,self.log_writer) # object initialization
-            #
-            #         # getting the best model for each of the clusters
-            #         best_model_name,best_model=model_finder.get_best_model(x_train,y_train,x_test,y_test)
-            #
-            #         # saving the best model to the directory.
-            #         file_op = file_methods.File_Operation(self.file_object,self.log_writer)
-            #         save_model=file_op.save_model(best_model,best_model_name+str(i))
-            #
-            # # logging the successful Training
-            # self.log_writer.log(self.file_object, 'Successful End of Training')
-            # self.file_object.close()
+                    self.log_writer.log(self.file_object, "Initialise data clustering.")
+                    kmeans = clustering.KMeansClustering(self.file_object,self.log_writer)
+                    number_of_clusters = kmeans.elbow_plot(X, filename)  # elbow plot
+
+                    # Divide the data into clusters
+                    X = kmeans.create_clusters(X,number_of_clusters, filename)
+
+                    X['Labels'] = Y
+
+                    # getting the unique clusters from our dataset
+                    list_of_clusters = X['Cluster'].unique()
+
+                    """parsing all the clusters and looking for the best ML algorithm to fit on individual cluster"""
+
+                    self.log_writer.log(self.file_object, "Dividing data into seperate clusters for training.")
+                    for i in list_of_clusters:
+                        cluster_data = X[X['Cluster'] == i]  # filter the data for one cluster
+
+                        # Prepare the feature and Label columns
+                        cluster_features = cluster_data.drop(['Labels','Cluster'],axis=1)
+                        cluster_label = cluster_data['Labels']
+
+                        # splitting the data into training and test set for each cluster one by one
+                        x_train, x_test, y_train, y_test = train_test_split(cluster_features, cluster_label,
+                                                                            test_size=1/3, random_state=355)
+                        self.log_writer.log(self.file_object, f'Scaling cluster data for cluster {i}')
+                        x_train = preprocessor.scaleData(x_train)
+                        x_test = preprocessor.scaleData(x_test)
+
+                        self.log_writer.log(self.file_object, f'Initialize model tuning for cluster {i}')
+                        model_finder = tuner.Model_Finder(self.file_object, self.log_writer)
+
+                        # getting the best model for each of the clusters
+                        best_model_name, best_model = model_finder.get_best_model(x_train,y_train,x_test,y_test)
+
+                        # saving the best model to the directory.
+                        self.log_writer.log(self.file_object,
+                                            f"Model {best_model_name} selected for cluster {i}. Saving model.")
+
+                        file_op = file_methods.File_Operation(self.file_object,self.log_writer, filename)
+                        file_op.save_model(best_model,best_model_name+str(i))
+
+                        self.log_writer.log(self.file_object, f'Training complete for Cluster {i}')
+
+                    else:
+                        self.log_writer.log(self.file_object, f'Training finished for the data {filename}')
+                else:
+                    self.log_writer.log(self.file_object, "Training completed for all datasets.")
 
             except Exception as e:
-                # logging the unsuccessful Training
-                self.log_writer.log(self.file_object, f"Error: {e}")
-                self.log_writer.log(self.file_object, 'Unsuccessful End of Training')
-                # self.file_object.close()
-                raise e
+                self.log_writer.log(self.file_object, '!! Unsuccessful End of Training !!')

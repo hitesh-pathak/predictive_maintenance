@@ -7,6 +7,9 @@ name = "pypi"
 pandas = "*"
 cassandra-driver = "*"
 sklearn = "*"
+matplotlib = "*"
+kneed = "*"
+xgboost = "*"
 
 [dev-packages]
 

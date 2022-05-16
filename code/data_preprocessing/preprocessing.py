@@ -62,7 +62,7 @@ class Preprocessor:
             self.logger_object.log(self.file_object, 'Label Separation Unsuccessful. Exited the separate_label_feature method of the Preprocessor class')
             raise Exception()
 
-    def is_null_present(self,data):
+    def is_null_present(self,data, filename):
         """
             Method Name: is_null_present
 
@@ -82,20 +82,28 @@ class Preprocessor:
                     self.logger_object.log(self.file_object, f"Null values present in {col} column.")
                     break
 
-            self.logger_object.log(self.file_object, "Creating preprocessing data directory if not present.")
-            if not os.path.isdir('preprocessing_data'):
-                os.makedirs('preprocessing_data')
-
-            if null_present: # write the logs to see which columns have null values
+            if null_present:
                 self.logger_object.log(self.file_object, "Writing null value count to file.")
+                self.logger_object.log(self.file_object, "Creating preprocessing data directory if not present.")
 
-                pd.DataFrame(null_counts, columns=['Missing value count']).to_csv('preprocessing_data/null_values.csv')
+                # create different directory for each datafile, based on the filename
+                save_path = os.path.join('preprocessing_data/', filename)
+                if not os.path.isdir(save_path):
+                    os.makedirs(save_path)
+
+                pd.DataFrame(null_counts,
+                             columns=['Missing value count']).to_csv(os.path.join(save_path, 'null_values.csv'))
 
                 self.logger_object.log(self.file_object, "Written null value count to file null_values.csv")
 
             self.logger_object.log(self.file_object,'Exiting the is_null_present method of the Preprocessor class')
 
             return null_present
+
+        except OSError as ose:
+            self.logger_object.log(self.file_object, f'Error{ose}')
+            raise ose
+
         except Exception as e:
             self.logger_object.log(self.file_object,f"Error: {e}")
             self.logger_object.log(self.file_object,'Exiting the is_null_present method of the Preprocessor class')
@@ -224,7 +232,7 @@ class Preprocessor:
             # non_num_data = [col for col in data.cols and col not in num_data]
             scaled_array = scalar.fit_transform(num_data)
 
-            data[numcol] = num_data
+            # data[numcol] = num_data
             scaled_data = pd.DataFrame(scaled_array, columns=numcol, index=data.index)
 
             data[numcol] = scaled_data
@@ -258,6 +266,8 @@ class Preprocessor:
 
             for unit, slice in group_unit:
                 rul = slice.max() - slice
+                # clip the rul to 125 as we saw in EDA
+                rul.clip(upper=125, inplace=True)
                 data.loc[data['unit_nr'] == unit, 'RUL'] = rul
 
             else:
