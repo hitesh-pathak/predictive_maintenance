@@ -8,6 +8,10 @@
       <excludeFolder url="file://$MODULE_DIR$/astradb" />
       <excludeFolder url="file://$MODULE_DIR$/Training_Raw_files_validated" />
       <excludeFolder url="file://$MODULE_DIR$/TrainingArchiveBadData" />
+      <excludeFolder url="file://$MODULE_DIR$/Prediction_Logs" />
+      <excludeFolder url="file://$MODULE_DIR$/Prediction_FileFromDB" />
+      <excludeFolder url="file://$MODULE_DIR$/PredictionArchiveBadData" />
+      <excludeFolder url="file://$MODULE_DIR$/Prediction_Raw_files_validated" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

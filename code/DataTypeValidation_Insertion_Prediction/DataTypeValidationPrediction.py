@@ -22,9 +22,9 @@ class dBOperation:
     """
 
     def __init__(self):
-        self.badFilePath = "Training_Raw_files_validated/Bad_Raw"
-        self.goodFilePath = "Training_Raw_files_validated/Good_Raw"
-        self.fileFromDb = 'Training_FileFromDB/'
+        self.badFilePath = "Prediction_Raw_files_validated/Bad_Raw"
+        self.goodFilePath = "Prediction_Raw_files_validated/Good_Raw"
+        self.fileFromDb = 'Prediction_FileFromDB/'
         self.logger = App_Logger()
 
         # prelim checks
@@ -50,7 +50,7 @@ class dBOperation:
 
     """
         try:
-            file = open("Training_Logs/DataBaseConnectionLog.txt", 'a+')
+            file = open("Prediction_Logs/DataBaseConnectionLog.txt", 'a+')
             self.logger.log(file, f"Trying to connect to database {DatabaseName}")
 
             if not os.path.isfile('astradb/secure-connect-training.zip'):
@@ -104,23 +104,23 @@ class dBOperation:
             file.close()
 
         except FileNotFoundError as notfound:
-            file = open("Training_Logs/DataBaseConnectionLog.txt", 'a+')
+            file = open("Prediction_Logs/DataBaseConnectionLog.txt", 'a+')
             self.logger.log(file, notfound)
             file.close()
             raise notfound
         except AuthenticationFailed as authfail:
-            file = open("Training_Logs/DataBaseConnectionLog.txt", 'a+')
+            file = open("Prediction_Logs/DataBaseConnectionLog.txt", 'a+')
             self.logger.log(file, f"Authentication error occurred while trying to connect to Database : {authfail}")
             self.logger.log(file, 'Please check your token.')
             file.close()
             raise authfail
         except ConnectionError:
-            file = open("Training_Logs/DataBaseConnectionLog.txt", 'a+')
+            file = open("Prediction_Logs/DataBaseConnectionLog.txt", 'a+')
             self.logger.log(file, "Error while connecting to database: %s" % ConnectionError)
             file.close()
             raise ConnectionError
         except Exception as e:
-            file = open("Training_Logs/DataBaseConnectionLog.txt", 'a+')
+            file = open("Prediction_Logs/DataBaseConnectionLog.txt", 'a+')
             self.logger.log(file, e)
             raise e
         else:
@@ -136,7 +136,7 @@ class dBOperation:
         """
         table_name_list = ['goodrawdata_00' + str(k) for k in range(1, 5)]
         conn = None  # because we must define conn outside try statement
-        log_file = open("Training_Logs/DbTableCreateLog.txt", 'a+')
+        log_file = open("Prediction_Logs/DbTableCreateLog.txt", 'a+')
         try:
 
             # log_file = open("Training_Logs/DbTableCreateLog.txt", 'a+')
@@ -172,7 +172,7 @@ class dBOperation:
                 del future1
 
             # check for metadata table
-            del_meta = f'DROP TABLE IF EXISTS {DatabaseName}.training_meta_data'
+            del_meta = f'DROP TABLE IF EXISTS {DatabaseName}.prediction_meta_data'
             del_meta = SimpleStatement(del_meta)
             del_meta.is_idempotent = True
             conn.execute(del_meta)
@@ -212,7 +212,7 @@ class dBOperation:
                 self.logger.log(log_file, "Created new tables.")
 
             # create meta table as well, meta table contains data about the tables
-            stmt = f"CREATE TABLE {DatabaseName}.training_meta_data " + \
+            stmt = f"CREATE TABLE {DatabaseName}.prediction_meta_data " + \
                    "(table_name VARCHAR, unit_nr_range INT, total_rows INT, PRIMARY KEY (table_name))"
             query = SimpleStatement(stmt)
             self.logger.log(log_file, "Creating meta data table training_meta_data.")
@@ -247,7 +247,7 @@ class dBOperation:
                 raise unavailable
 
         except Exception as e:
-            # log_file = open("Training_Logs/DbTableCreateLog.txt", 'a+')
+            # log_file = open("Prediction_Logs/DbTableCreateLog.txt", 'a+')
             if conn is not None:
                 conn.shutdown()
             self.logger.log(log_file, f"Error: {e}")
@@ -271,15 +271,15 @@ class dBOperation:
 
                                On Failure: Raise Exception
         """
-        log_file = open("Training_Logs/DbInsertLog.txt", 'a+')
+        log_file = open("Prediction_Logs/DbInsertLog.txt", 'a+')
         self.logger.log(log_file, 'Starting data insertion into database')
 
-        if not os.path.isfile('./schema_training.json'):
-            error = FileNotFoundError('Required schema file schema_training.json not found in current directory.')
+        if not os.path.isfile('./schema_prediction.json'):
+            error = FileNotFoundError('Required schema file schema_prediction.json not found in current directory.')
             self.logger.log(log_file, error)
             raise error
 
-        with open('./schema_training.json', 'r') as f:
+        with open('./schema_prediction.json', 'r') as f:
             dic = json.load(f)
             column_names = dic['ColName']
         cols = ', '.join(column_names.keys())  # used later in query
@@ -293,11 +293,11 @@ class dBOperation:
 
         self.logger.log(log_file, 'Verifying existence of meta data table.')
         check_meta = "SELECT table_name FROM system_schema.tables " + \
-                      f"WHERE keyspace_name='{Database}' AND table_name='training_meta_data'"
+                      f"WHERE keyspace_name='{Database}' AND table_name='prediction_meta_data'"
         check_meta = SimpleStatement(check_meta)
         check_meta.is_idempotent = True
         ismeta = conn.execute(check_meta)
-        if not ismeta[0].table_name == 'training_meta_data':
+        if not ismeta[0].table_name == 'prediction_meta_data':
             self.logger.log(log_file, 'Required metadata table not found in database.')
             conn.shutdown()
             if timeout_retry:
@@ -398,7 +398,7 @@ class dBOperation:
 
                     # now insert a metadata table too
                     self.logger.log(log_file, f"Uploading meta data for table {table_name}.")
-                    meta_insrt = "INSERT INTO training_meta_data (table_name, unit_nr_range, total_rows) VALUES " + \
+                    meta_insrt = "INSERT INTO prediction_meta_data (table_name, unit_nr_range, total_rows) VALUES " + \
                         f"('{table_name}', {unit_nr_range}, {total_queries})"
                     meta_insrt = SimpleStatement(meta_insrt)
 
@@ -453,7 +453,7 @@ class dBOperation:
         """
 
         # self.fileFromDb = 'Training_FileFromDB/'
-        log_file = open("Training_Logs/ExportToCsv.txt", 'a+')
+        log_file = open("Prediction_Logs/ExportToCsv.txt", 'a+')
         self.logger.log(log_file, "Staring to import csv from database.")
         table_name_list = ['goodrawdata_00' + str(k) for k in range(1, 5)]
         conn = None
@@ -471,13 +471,13 @@ class dBOperation:
                 # self.logger.log(log_file, "Connection established.")
                 self.logger.log(log_file, "Manually fetching column names from schema file.")
                 # manually fetch column names, if fetched from database col names can be out of order
-                if not os.path.isfile('./schema_training.json'):
+                if not os.path.isfile('./schema_prediction.json'):
                     error = FileNotFoundError(
-                        'Required schema file schema_training.json not found in current directory.')
+                        'Required schema file schema_prediction.json not found in current directory.')
                     self.logger.log(log_file, f"Error: {error}")
                     raise error
 
-                with open('./schema_training.json', 'r') as f:
+                with open('./schema_prediction.json', 'r') as f:
                     dic = json.load(f)
                     column_names = dic['ColName']
                 self.logger.log(log_file, 'Successfully fetched column names from schema file')
@@ -498,7 +498,7 @@ class dBOperation:
 
             tables_exist = set()
             for result in tables:
-                name = getattr(result, 'table_name')
+                name = getattr(result, 'table_name') # result.table_name
                 if name in table_name_list:
                     tables_exist.add(name)
                     self.logger.log(log_file, f"Found relevant table {name}.")
@@ -535,7 +535,7 @@ class dBOperation:
                 # fetch meta data
                 self.logger.log(log_file, f"Loading metadata for table {name}.")
                 get_meta = \
-                    f"SELECT unit_nr_range,total_rows FROM {Database}.training_meta_data WHERE table_name='{name}'"
+                    f"SELECT unit_nr_range,total_rows FROM {Database}.prediction_meta_data WHERE table_name='{name}'"
                 get_meta = SimpleStatement(get_meta)
                 get_meta.is_idempotent = True
                 metadata = conn.execute(get_meta)
@@ -555,10 +555,10 @@ class dBOperation:
                 select_prep.fetch_size = None  # fetch all results at once disable paging
 
                 # choose file name
-                file_name = 'train_input_' + name.split('_')[1] + '.csv'
+                file_name = 'test_input_' + name.split('_')[1] + '.csv'
                 self.logger.log(log_file, f"Writing table {name} to {file_name}")
 
-                # find the corresponding training data file
+                # find the corresponding prediction data file
 
                 conc_level = 1000
 
