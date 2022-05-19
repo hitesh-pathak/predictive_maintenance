@@ -3,7 +3,7 @@ This is the Entry point for Training the Machine Learning Model.
 """
 # Doing the necessary imports
 import os
-import shutil
+import pandas as pd
 from data_ingestion import data_loader
 from data_preprocessing import preprocessing
 from file_operations import file_methods
@@ -38,7 +38,7 @@ class prediction:
                     self.log_writer.log(self.file_object, f"Loaded data from {filename}.")
 
                     self.log_writer.log(self.file_object, "Initialize Preprocessor class.")
-                    preprocessor = preprocessing.Preprocessor(self.file_object ,self.log_writer)
+                    preprocessor = preprocessing.Preprocessor(self.file_object, self.log_writer)
 
                     self.log_writer.log(self.file_object, "Dropping redundant setting columns.")
                     data = preprocessor.drop_redundant_settings(data)
@@ -63,10 +63,6 @@ class prediction:
                     self.log_writer.log(self.file_object, "Select last RUL row for test data.")
                     data = preprocessor.select_last_rul(data)
 
-                    # scale data
-                    self.log_writer.log(self.file_object, "Scaling numerical data")
-                    data = preprocessor.scaleData(data)
-
                     # load kmeans model
                     self.log_writer.log(self.file_object, "Loading kmeans model.")
                     file_loader = file_methods.File_Operation(self.file_object, self.log_writer, filename)
@@ -77,9 +73,11 @@ class prediction:
                     cluster = kmeans.predict(data)
                     data['cluster'] = cluster
 
-                    for c in cluster.unique():
+                    # empty dataframe
+                    df = pd.DataFrame()
+                    for c in data['cluster'].unique():
                         cluster_data = data[data['cluster'] == c]
-                        cluster_data = cluster_data.drop(['cluster'], axis = 1)
+                        cluster_data = cluster_data.drop(['cluster'], axis=1)
 
                         # finding model
                         self.log_writer.log(self.file_object, f'Finding model for cluster {c}')
@@ -87,17 +85,25 @@ class prediction:
 
                         model = file_loader.load_model(model_name)
 
+                        # scale data
+                        self.log_writer.log(self.file_object, "Scaling numerical data")
+                        cluster_data = preprocessor.scaleData(cluster_data)
+
                         rul = model.predict(cluster_data)
                         cluster_data['RUL'] = rul
 
-                        self.log_writer.log(self.file_object, f" Saving prediction for cluster {c}")
+                        # append data
+                        df = pd.concat(df, cluster_data)
+                        self.log_writer.log(self.file_object, f"Computed RUL value for cluster {c}")
 
-                        file_loader.save_prediction(cluster_data[['unit_nr', 'RUL']], filename)
-
-                        self.log_writer.log(self.file_object, f"Saved prediction  for cluster {c}")
-
+                    else:
+                        data = data.join(df['RUL'])
+                        file_loader.save_prediction(data['RUL'], filename)
+                        self.log_writer.log(self.file_object, f" Saved predictions for file {filename}")
                 else:
-                    self.log_writer.log(self.file_object, f" Saved predictions for file {filename}")
+                    self.log_writer.log(self.file_object, "Predictions saved for all files.")
 
             except Exception as e:
+                self.log_writer.log(self.file_object, f'Error: {e}')
                 self.log_writer.log(self.file_object, '!! Unsuccessful End of Training !!')
+                raise e

@@ -13,6 +13,7 @@
       <excludeFolder url="file://$MODULE_DIR$/PredictionArchiveBadData" />
       <excludeFolder url="file://$MODULE_DIR$/Prediction_Raw_files_validated" />
       <excludeFolder url="file://$MODULE_DIR$/Prediction_Batch_files" />
+      <excludeFolder url="file://$MODULE_DIR$/models" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

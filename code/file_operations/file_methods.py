@@ -36,7 +36,7 @@ class File_Operation:
                 shutil.rmtree(path)
                 os.makedirs(path)
             else:
-                os.makedirs(path) #
+                os.makedirs(path)  # make it
 
             self.logger_object.log(self.file_object, f'Trying to save model {modelname}')
             modelfile = os.path.join(path, modelname + '.sav')
@@ -49,6 +49,8 @@ class File_Operation:
             return True
 
         except Exception as ose:
+            self.logger_object.log(self.file_object, f"Error occurred while saving model: {ose}")
+            self.logger_object.log(self.file_object, f" Exiting the save_model method of {__class__}")
             raise ose
 
     def load_model(self, modelname):
@@ -87,7 +89,7 @@ class File_Operation:
 
         except Exception as e:
             self.logger_object.log(self.file_object,
-                                   f'Exception occurred while loading model.')
+                                   f'Exception occurred while loading model: {e}.')
             self.logger_object.log(self.file_object, f"Exited load_model method of {__class__}")
             raise e
 
@@ -156,23 +158,24 @@ class File_Operation:
             self.logger_object.log(self.file_object, f"Entered save_prediction method of {__class__}")
             end = filename[-1]
             pred_file = 'prediction_output_00' + end + '.csv'
+            path = os.path.join('Prediction_output', pred_file)
 
             self.logger_object.log(self.file_object, "Creating output directory.")
             if not os.path.isdir('Prediction_output'):
                 os.makedirs('Prediction_output')
             else:
                 # removing old prediction files
-                prediction_file = os.path.join('Prediction_output', pred_file)
-                if os.path.isfile(os.path.join('Prediction_output', pred_file)):
+                if os.path.isfile(path):
                     self.logger_object.log(self.file_object, 'Removing existing prediction file')
-                    os.remove(prediction_file)
+                    os.remove(path)
 
-                # save prediction to csv file
-                data.to_csv(pred_file, mode='a+', index=False)
-                self.logger_object.log(self.file_object, f"Prediction saved to file {pred_file}")
-                self.logger_object.log(self.file_object, f"Exiting save_prediction method of {__class__}")
+            # save prediction to csv file
+            data.to_csv(path, mode='a+', index=False)
+            self.logger_object.log(self.file_object, f"Prediction saved to file {pred_file}")
+            self.logger_object.log(self.file_object, f"Exiting save_prediction method of {__class__}")
 
-                return True
+
+            return True
 
         except OSError as ose:
             self.logger_object(self.file_object, f"Error occurred in save_prediction method of {__class__}")
