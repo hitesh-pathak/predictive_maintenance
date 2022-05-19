@@ -223,7 +223,7 @@ class Preprocessor:
             self.logger_object.log(self.file_object, "Finding all numeric datatype columns.")
             numcol = []
             for cols in data.columns:
-                if  is_numeric_dtype(data.cols):
+                if  is_numeric_dtype(data[cols]):
                     numcol.append(cols)
                 else:
                     self.logger_object.log(self.file_object, f"Column {cols} has a non numeric type")
@@ -279,6 +279,45 @@ class Preprocessor:
             self.logger_object.log(self.file_object,
                                    f"Exiting add_remaining_useful_life method of {__class__} class.")
             raise e
+    def drop_sensor(self,data,filename):
+      """
+
+      """
+      self.logger_object.log(self.file_object, f"Starting drop_sensor method of {__class__} class.")
+      try:
+        d={"1":['sensor_01','sensor_05','sensor_06','sensor_10','sensor_16','sensor_18','sensor_19'],
+           "2":[],
+           "3":['sensor_01','sensor_05','sensor_16','sensor_18','sensor_19'],
+           "4":['sensor_01', 'sensor_05', 'sensor_06', 'sensor_10', 'sensor_16', 'sensor_18', 'sensor_19']}
+        data=data.drop(d[filename[-1]],axis=1)
+        return data
+
+      except Exception as e:
+        self.logger_object.log(self.file_object,"Failed at drop_column")
+        self.logger_object.log(self.file_object,f"Error: failed at drop_column:{e}")
+
+
+        raise e
+
+    def select_last_rul(self, data):
+        '''
+        This module selects the last row for reach engine unit, the rul is predicted for the last time cycle
+        of engine
+
+        :param data: DataFrame
+        :return: Modified DataFrame
+        '''
+        try:
+            self.logger_object.log(self.file_object, f"Start select_last_rul of {__class__}")
+            data = data.groupby('unit_nr').last().reset_index()
+            return data
+
+        except Exception as e:
+            self.logger_object.log(self.file_object, f"Error occured in select_last_rul: {e}")
+            raise e
+
+
+
 
 
 

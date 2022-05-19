@@ -33,7 +33,7 @@ class trainModel:
                 self.log_writer.log(self.file_object, 'Data ingestion completed.')
 
                 for data, filename in datagen():
-                    filename = filename.split('.')[0]  # redifine filename without the .csv part!
+                    filename = filename.split('.')[0]  # redefine filename without the .csv part!
                     """doing the data preprocessing"""
                     self.log_writer.log(self.file_object, f"Loaded data from {filename}.")
 
@@ -42,6 +42,9 @@ class trainModel:
 
                     self.log_writer.log(self.file_object, "Dropping redundant setting columns.")
                     data = preprocessor.drop_redundant_settings(data)
+
+                    self.log_writer.log(self.file_object, "Dropping sensor columns acc to data visualisation/eda.")
+                    data = preprocessor.drop_sensor(data, filename)
 
                     self.log_writer.log(self.file_object, "Dropping columns with zero standard deviation.")
                     data = preprocessor.drop_columns_with_zero_std_deviation(data)
