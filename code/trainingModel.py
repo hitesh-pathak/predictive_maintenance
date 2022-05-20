@@ -44,6 +44,10 @@ class trainModel:
                     self.log_writer.log(self.file_object, "Adding remaining useful life column to data.")
                     data = preprocessor.add_remaining_useful_life(data)
 
+                    # drop unit_nr and time_cycles
+                    self.log_writer.log(self.file_object, "Dropping unit_nr and time_cycles column")
+                    data = preprocessor.remove_columns(data, ['unit_nr', 'time_cycles'])
+
                     self.log_writer.log(self.file_object, "Dropping redundant setting columns.")
                     data = preprocessor.drop_redundant_settings(data)
 

@@ -21,7 +21,7 @@ class Preprocessor:
         self.file_object = file_object
         self.logger_object = logger_object
 
-    def remove_columns(self,data,columns):
+    def remove_columns(self, data, columns):
         """
                 Method Name: remove_columns
 
@@ -189,7 +189,7 @@ class Preprocessor:
             columns = data.columns
             # it is necessary for grouper to be a list, a ndarray or pandas series will error out
             setting_names = list(columns[2:5])  # this is according to schema file col 3, 4, 5 are settings
-            index_names = ['unit_nr', 'time_cycles']
+            # index_names = ['unit_nr', 'time_cycles']
             rounding = {cols: digits for cols, digits in zip(setting_names, [0, 2, 0])}  # specifies the rounding digit
 
             # groupby automatically drops na values so na values do not affect this.
@@ -197,10 +197,10 @@ class Preprocessor:
             self.logger_object.log(self.file_object, f"Found {setting_no} setting(s).")
             if setting_no > 1:
                 self.logger_object.log(self.file_object, "No settings columns dropped.")
-                return self.remove_columns(data, index_names)
+                return data
             else:
                 self.logger_object.log(self.file_object, "Dropping settings columns.")
-                return self.remove_columns(data, index_names + setting_names)
+                return self.remove_columns(data, setting_names)
 
         except Exception as e:
             self.logger_object.log(self.file_object, f"Error occurred while dropping setting columns: {e}")
@@ -302,15 +302,15 @@ class Preprocessor:
 
     def select_last_rul(self, data):
         '''
-        This module selects the last row for reach engine unit, the rul is predicted for the last time cycle
-        of engine
+        This module selects the last row for reach engine unit and drops the time_cycles columns,
+        the rul is predicted for the last time cycle of engine. Resulting DataFrame has unit_nr as index.
 
         :param data: DataFrame
         :return: Modified DataFrame
         '''
         try:
             self.logger_object.log(self.file_object, f"Start select_last_rul of {__class__}")
-            data = data.groupby('unit_nr').last()
+            data = data.groupby('unit_nr').last().drop(['time_cycles'], axis=1)
             return data
 
         except Exception as e:

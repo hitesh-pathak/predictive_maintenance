@@ -93,7 +93,7 @@ class prediction:
                         cluster_data['RUL'] = rul
 
                         # append data
-                        df = pd.concat(df, cluster_data)
+                        df = pd.concat([df, cluster_data])
                         self.log_writer.log(self.file_object, f"Computed RUL value for cluster {c}")
 
                     else:

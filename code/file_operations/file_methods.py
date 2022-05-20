@@ -170,7 +170,7 @@ class File_Operation:
                     os.remove(path)
 
             # save prediction to csv file
-            data.to_csv(path, mode='a+', index=False)
+            data.to_csv(path, mode='w', index=True)
             self.logger_object.log(self.file_object, f"Prediction saved to file {pred_file}")
             self.logger_object.log(self.file_object, f"Exiting save_prediction method of {__class__}")
 
