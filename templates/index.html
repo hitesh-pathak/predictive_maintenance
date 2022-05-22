@@ -1,0 +1,54 @@
+<!doctype html>
+
+<html>
+    <head>
+
+        <!-- CSS code -->
+        <style>
+        form {
+            margin: auto;
+            width: 35%;
+        }
+
+        .result {
+            margin: auto;
+            width: 35%;
+            border: 1px solid #ccc;
+        }
+        </style>
+
+        <title>RUL prediction model</title>
+    </head>
+
+    <body>
+
+        <!-- Use the action attribute to call the 'main' function -->
+        <form action="{{ url_for('main') }}" method="POST">
+        <fieldset>
+            <legend>Input values:</legend>
+            Input prediction path:
+            <!-- Required attribute is used to make sure people input values -->
+            <input name="filepath" type="text" required>
+            <br>
+            <input type="submit">
+        </fieldset>
+        </form>
+
+        <br>
+
+        <div class="result" align="center">
+
+            <!-- Our 'result' is false until a prediction has been made -->
+            {% if result %}
+                <!-- Print result -->
+                <br> Result:
+                <p>{{ result }}</p>
+
+            {% else %}
+                <br> Result:
+                <p>Something went wrong!</p>
+
+            {% endif %}
+        </div>
+
+    </body>
