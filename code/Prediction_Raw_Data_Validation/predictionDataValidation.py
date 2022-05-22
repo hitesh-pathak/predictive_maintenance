@@ -74,11 +74,15 @@ class Prediction_Data_validation:
     @staticmethod
     def manualRegexCreation():
         """
-                                      Method Name: manualRegexCreation
-                                      Description: This method contains a manually defined regex based on the "FileName" given in "Schema" file.
-                                                  This Regex is used to validate the filename of the prediction data.
-                                      Output: Regex pattern
-                                      On Failure: None
+                      Method Name: manualRegexCreation
+                      
+                      Description: This method contains a manually defined regex based on the
+                                    "FileName" given in "Schema" file.
+                                  This Regex is used to validate the filename of the prediction data.
+
+                      Output: Regex pattern
+
+                      On Failure: None
 
         """
         pattern = r"^test_FD00[1-4]\.txt$|^train_00[1-4]\.csv$"
@@ -101,16 +105,16 @@ class Prediction_Data_validation:
         try:
             file = open("Prediction_Logs/GeneralLog.txt", 'a+')
             self.logger.log(file, "Making good and bad raw data directories.")
-            path = os.path.join("Prediction_Raw_files_validated/", "Good_Raw/")
+            path = os.path.join("Prediction_Raw_files_validated", "Good_Raw")
             if not os.path.isdir(path):
                 os.makedirs(path)
-            path = os.path.join("Prediction_Raw_Files_Validated/", "Bad_Raw/")
+            path = os.path.join("Prediction_Raw_Files_Validated", "Bad_Raw")
             if not os.path.isdir(path):
                 os.makedirs(path)
             file.close()
         except OSError as ex:
             file = open("Prediction_Logs/GeneralLog.txt", 'a+')
-            self.logger.log(file,"Error while creating Directory %s:" % ex)
+            self.logger.log(file, f"Error while creating Directory {ex}")
             file.close()
             raise OSError
         else:
@@ -132,14 +136,14 @@ class Prediction_Data_validation:
             self.logger.log(file, "Removing existing Good data folder")
             path = 'Prediction_Raw_files_validated/'
 
-            if os.path.isdir(path + 'Good_Raw/'):
-                shutil.rmtree(path + 'Good_Raw/')
+            if os.path.isdir(os.path.join(path, 'Good_Raw')):
+                shutil.rmtree(os.path.join(path, 'Good_Raw'))
 
                 self.logger.log(file, "GoodRaw directory deleted successfully!!!")
             file.close()
         except OSError as s:
             file = open("Prediction_Logs/GeneralLog.txt", 'a+')
-            self.logger.log(file, "Error while Deleting Directory : %s" %s)
+            self.logger.log(file, f"Error while Deleting Directory : {s}")
             file.close()
             raise OSError
 
@@ -157,14 +161,14 @@ class Prediction_Data_validation:
             file = open("Prediction_Logs/GeneralLog.txt", 'a+')
             self.logger.log(file, "Removing existing bad raw data directory.")
             path = 'Prediction_Raw_files_validated/'
-            if os.path.isdir(path + 'Bad_Raw/'):
-                shutil.rmtree(path + 'Bad_Raw/')
+            if os.path.isdir(os.path.join(path, 'Bad_Raw')):
+                shutil.rmtree(os.path.join(path, 'Bad_Raw'))
 
                 self.logger.log(file, "BadRaw directory deleted before starting validation!!!")
                 file.close()
         except OSError as s:
             file = open("Prediction_Logs/GeneralLog.txt", 'a+')
-            self.logger.log(file,"Error while Deleting Directory : %s" %s)
+            self.logger.log(file, f"Error while Deleting Directory : {s}")
             file.close()
             raise OSError
 
@@ -172,10 +176,13 @@ class Prediction_Data_validation:
 
         """
                                 Method Name: moveBadFilesToArchiveBad
+
                                 Description: This method deletes the directory made  to store the Bad Data
                                               after moving the data in an archive folder. We archive the bad
                                               files to send them back to the client for invalid data issue.
+
                                 Output: None
+
                                 On Failure: OSError
         """
         now = datetime.now()
@@ -189,8 +196,7 @@ class Prediction_Data_validation:
                 path = "PredictionArchiveBadData"
                 if not os.path.isdir(path):
                     os.makedirs(path)
-                dest = 'PredictionArchiveBadData/BadData_' + str(date) + "_" + str(time)
-
+                dest = os.path.join('PredictionArchiveBadData/BadData_', str(date) + "_" + str(time))
                 if not os.path.isdir(dest):
                     os.makedirs(dest)
                 self.logger.log(file, f"Archive folder created : {dest}")
@@ -198,13 +204,13 @@ class Prediction_Data_validation:
                 files = os.listdir(source)
                 for f in files:
                     if f not in os.listdir(dest):
-                        shutil.move(source + f, dest)
+                        shutil.move(os.path.join(source, f), dest)
 
                 self.logger.log(file, "Bad files moved to archive")
                 path = 'Prediction_Raw_files_validated/'
                 self.logger.log(file, "Bad files archived. Now removing bad data directory.")
-                if os.path.isdir(path + 'Bad_Raw/'):
-                    shutil.rmtree(path + 'Bad_Raw/')
+                if os.path.isdir(os.path.join(path, 'Bad_Raw')):
+                    shutil.rmtree(os.path.join(path, 'Bad_Raw'))
                 self.logger.log(file, "Bad Raw Data Folder Deleted successfully!!")
 
                 file.close()
@@ -222,7 +228,7 @@ class Prediction_Data_validation:
 
         except Exception as e:
             file = open("Prediction_Logs/GeneralLog.txt", 'a+')
-            self.logger.log(file, "Error while moving bad files to archive:: %s" % e)
+            self.logger.log(file, f"Error while moving bad files to archive:: {e}")
             file.close()
             raise e
 
@@ -264,11 +270,11 @@ class Prediction_Data_validation:
                 filepath = os.path.join(self.Batch_Directory, filename)
                 if regex.match(filename):
                     shutil.copy(filepath, "Prediction_Raw_files_validated/Good_Raw")
-                    self.logger.log(f, "Valid File name!! File moved to GoodRaw Folder :: %s" % filename)
+                    self.logger.log(f, f"Valid File name! File moved to GoodRaw Folder :: {filename}" )
 
                 else:
                     shutil.copy(filepath, "Prediction_Raw_Files_Validated/Bad_Raw")
-                    self.logger.log(f, "Invalid File Name!! File moved to Bad Raw Folder :: %s" % filename)
+                    self.logger.log(f, f"Invalid File Name! File moved to Bad Raw Folder :: {filename}")
             self.logger.log(f, "Name validation finished.")
             f.close()
 
@@ -281,35 +287,38 @@ class Prediction_Data_validation:
     def validateColumnLength(self, NumberofColumns):
         """
                           Method Name: validateColumnLength
+
                           Description: This function validates the number of columns in the csv files.
                                        It should be same as given in the schema file.
                                        If not same file is not suitable for processing
                                        and thus is moved to Bad Raw Data folder.
                                        If the column number matches, file is kept in Good Raw Data for processing.
+
                           Output: None
+
                           On Failure: Exception
         """
         try:
             f = open("Prediction_Logs/columnValidationLog.txt", 'a+')
             self.logger.log(f,"Column Length Validation Started!!")
-            for file in listdir('Prediction_Raw_Files_Validated/Good_Raw/'):
-                csv = pd.read_csv("Prediction_Raw_Files_Validated/Good_Raw/" + file, sep='\s+', header=None)
+            good_path = os.path.join('Prediction_Raw_Files_Validated', 'Good_Raw')
+            bad_path = os.path.join('Prediction_Raw_Files_Validated', 'Bad_Raw')
+            for file in listdir(good_path):
+                csv = pd.read_csv(os.path.join(good_path, file), sep='\s+', header=None)
                 if csv.shape[1] == NumberofColumns:
-                    self.logger.log(f, "Column Length for the file validated :: %s" % file)
+                    self.logger.log(f, f"Column Length for the file validated :: {file}")
                 else:
-                    shutil.move(
-                        "Prediction_Raw_Files_Validated/Good_Raw/" + file, "Prediction_Raw_Files_Validated/Bad_Raw")
-                    self.logger.log(f, "Invalid Column Length for the file!! File moved to Bad Raw Folder :: %s" % file)
+                    shutil.move(os.path.join(good_path, file), bad_path)
+                    self.logger.log(f, f"Invalid Column Length for the file!! File moved to Bad Raw Folder :: {file}")
             self.logger.log(f, "Column Length Validation Completed!!")
-
         except OSError:
             f = open("Prediction_Logs/columnValidationLog.txt", 'a+')
-            self.logger.log(f, "Error Occurred while moving the file :: %s" % OSError)
+            self.logger.log(f, f"Error Occurred while moving the file :: {OSError}" )
             f.close()
             raise OSError
         except Exception as e:
             f = open("Prediction_Logs/columnValidationLog.txt", 'a+')
-            self.logger.log(f, "Error Occurred:: %s" % e)
+            self.logger.log(f, f"Error Occurred:: {e}")
             f.close()
             raise e
         else:
@@ -329,38 +338,34 @@ class Prediction_Data_validation:
             f = open("Prediction_Logs/missingValuesInColumn.txt", 'a+')
             self.logger.log(f, "Missing Values Validation Started!!")
 
-            for file in listdir('Prediction_Raw_Files_Validated/Good_Raw/'):
-                csv = pd.read_csv("Prediction_Raw_Files_Validated/Good_Raw/" + file, sep='\s+', header=None)
+            good_path = os.path.join('Prediction_Raw_Files_Validated', 'Good_Raw')
+            bad_path = os.path.join('Prediction_Raw_Files_Validated', 'Bad_Raw')
+            for file in listdir(good_path):
+                csv = pd.read_csv(os.path.join(good_path, file), sep='\s+', header=None)
                 count = 0
                 for column in csv:
                     # if (len(csv[columns]) - csv[columns].count()) == len(csv[columns]):
                     if csv[column].count() == 0:
                         count += 1
-                        shutil.move("Prediction_Raw_Files_Validated/Good_Raw/" + file,
-                                    "Prediction_Raw_Files_Validated/Bad_Raw")
-                        self.logger.log(f,"Invalid Column Length for the file!! File moved to Bad Raw Folder :: %s" % file)
+                        shutil.move(os.path.join(good_path, file), bad_path)
+                        self.logger.log(f,
+                                        f"Invalid Column Length for the file! File moved to Bad Raw Folder :: {file}")
                         break
 
                 if count == 0:
                     # csv.to_csv("Training_Raw_files_validated/Good_Raw/" + file, index=None, header=True)
-                    self.logger.log(f, "No completely null columns found in file :: %s" % file)
+                    self.logger.log(f, f"No completely null columns found in file :: {file}")
 
         except OSError:
             f = open("Prediction_Logs/missingValuesInColumn.txt", 'a+')
-            self.logger.log(f, "Error Occurred while moving the file :: %s" % OSError)
+            self.logger.log(f, f"Error Occurred while moving the file :: {OSError}")
             f.close()
             raise OSError
         except Exception as e:
             f = open("Prediction_Logs/missingValuesInColumn.txt", 'a+')
-            self.logger.log(f, "Error Occurred:: %s" % e)
+            self.logger.log(f, f"Error Occurred:: {e}")
             f.close()
             raise e
         else:
             f.close()
-
-
-    def deletePredictionFile(self):
-
-        if os.path.exists('Prediction_Output_File/Predictions.csv'):
-            os.remove('Prediction_Output_File/Predictions.csv')
 
