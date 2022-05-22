@@ -102,6 +102,8 @@ class prediction:
                         self.log_writer.log(self.file_object, f" Saved predictions for file {filename}")
                 else:
                     self.log_writer.log(self.file_object, "Predictions saved for all files.")
+                    # return true on success
+                    return True
 
             except Exception as e:
                 self.log_writer.log(self.file_object, f'Error: {e}')
