@@ -16,12 +16,12 @@ def main():
             path = request.form.get('filepath')
 
             # predict based on filepath
-            validator = pred_validation(path)
-            validator.pred_validation()
-
-            # save predictions using models
-            predictor = prediction()
-            predictor.predictionFromModel()
+            # validator = pred_validation(path)
+            # validator.pred_validation()
+            #
+            # # save predictions using models
+            # predictor = prediction()
+            # predictor.predictionFromModel()
 
             return render_template("index.html", result = 'Predictions saved successfully.')
 
