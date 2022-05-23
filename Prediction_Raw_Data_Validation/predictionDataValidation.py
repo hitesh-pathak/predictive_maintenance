@@ -95,17 +95,19 @@ class Prediction_Data_validation:
 
         """
                                         Method Name: createDirectoryForGoodBadRawData
+
                                         Description: This method creates directories to store the Good Data and Bad Data
                                                       after validating the prediction data.
 
                                         Output: None
+
                                         On Failure: OSError
 
     """
         try:
             file = open("Prediction_Logs/GeneralLog.txt", 'a+')
             self.logger.log(file, "Making good and bad raw data directories.")
-            path = os.path.join("Prediction_Raw_files_validated", "Good_Raw")
+            path = os.path.join("Prediction_Raw_files_Validated", "Good_Raw")
             if not os.path.isdir(path):
                 os.makedirs(path)
             path = os.path.join("Prediction_Raw_Files_Validated", "Bad_Raw")
@@ -124,17 +126,20 @@ class Prediction_Data_validation:
     def deleteExistingGoodDataPredictionFolder(self):
         """
                                 Method Name: deleteExistingGoodDataPredictionFolder
+
                                 Description: This method deletes the directory made to store the Good Data
                                               after loading the data in the table. Once the good files are
                                               loaded in the DB,deleting the directory ensures space optimization.
+
                                 Output: None
+
                                 On Failure: OSError
 
         """
         try:
             file = open("Prediction_Logs/GeneralLog.txt", 'a+')
             self.logger.log(file, "Removing existing Good data folder")
-            path = 'Prediction_Raw_files_validated/'
+            path = 'Prediction_Raw_files_Validated'
 
             if os.path.isdir(os.path.join(path, 'Good_Raw')):
                 shutil.rmtree(os.path.join(path, 'Good_Raw'))
@@ -160,7 +165,7 @@ class Prediction_Data_validation:
         try:
             file = open("Prediction_Logs/GeneralLog.txt", 'a+')
             self.logger.log(file, "Removing existing bad raw data directory.")
-            path = 'Prediction_Raw_files_validated/'
+            path = 'Prediction_Raw_files_Validated'
             if os.path.isdir(os.path.join(path, 'Bad_Raw')):
                 shutil.rmtree(os.path.join(path, 'Bad_Raw'))
 
@@ -191,7 +196,7 @@ class Prediction_Data_validation:
         try:
             file = open("Prediction_Logs/GeneralLog.txt", 'a+')
             self.logger.log(file, "Copying bad raw data files to archive directory")
-            source = 'Prediction_Raw_files_validated/Bad_Raw/'
+            source = 'Prediction_Raw_files_Validated/Bad_Raw/'
             if os.path.isdir(source):
                 path = "PredictionArchiveBadData"
                 if not os.path.isdir(path):
@@ -207,7 +212,7 @@ class Prediction_Data_validation:
                         shutil.move(os.path.join(source, f), dest)
 
                 self.logger.log(file, "Bad files moved to archive")
-                path = 'Prediction_Raw_files_validated/'
+                path = 'Prediction_Raw_files_Validated/'
                 self.logger.log(file, "Bad files archived. Now removing bad data directory.")
                 if os.path.isdir(os.path.join(path, 'Bad_Raw')):
                     shutil.rmtree(os.path.join(path, 'Bad_Raw'))
@@ -235,10 +240,13 @@ class Prediction_Data_validation:
     def validationFileNameRaw(self, regex):
         """
             Method Name: validationFileNameRaw
+
             Description: This function validates the name of the prediction csv file as per given name in the schema!
                          Regex pattern is used to do the validation.If name format do not match the file is moved
                          to Bad Raw Data folder else in Good raw data.
+
             Output: None
+
             On Failure: Exception
         """
 
@@ -266,14 +274,16 @@ class Prediction_Data_validation:
         try:
             f = open("Prediction_Logs/nameValidationLog.txt", 'a+')
             self.logger.log(f, "Matching file  names with regex.")
+            good_path = os.path.join('Prediction_Raw_Files_Validated', 'Good_Raw')
+            bad_path = os.path.join('Prediction_Raw_Files_Validated', 'Bad_Raw')
             for filename in onlyfiles:
                 filepath = os.path.join(self.Batch_Directory, filename)
                 if regex.match(filename):
-                    shutil.copy(filepath, "Prediction_Raw_files_validated/Good_Raw")
+                    shutil.copy(filepath, good_path)
                     self.logger.log(f, f"Valid File name! File moved to GoodRaw Folder :: {filename}" )
 
                 else:
-                    shutil.copy(filepath, "Prediction_Raw_Files_Validated/Bad_Raw")
+                    shutil.copy(filepath, bad_path)
                     self.logger.log(f, f"Invalid File Name! File moved to Bad Raw Folder :: {filename}")
             self.logger.log(f, "Name validation finished.")
             f.close()
@@ -326,12 +336,15 @@ class Prediction_Data_validation:
 
     def validateMissingValuesInWholeColumn(self):
         """
-                                  Method Name: validateMissingValuesInWholeColumn
-                                  Description: This function validates if any column in the csv file has all values missing.
-                                               If all the values are missing, the file is not suitable for processing.
-                                               SUch files are moved to bad raw data.
-                                  Output: None
-                                  On Failure: Exception
+                  Method Name: validateMissingValuesInWholeColumn
+
+                  Description: This function validates if any column in the csv file has all values missing.
+                               If all the values are missing, the file is not suitable for processing.
+                               SUch files are moved to bad raw data.
+
+                  Output: None
+
+                  On Failure: Exception
 
         """
         try:
