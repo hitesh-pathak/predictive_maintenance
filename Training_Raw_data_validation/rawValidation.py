@@ -28,7 +28,7 @@ class Raw_Data_validation:
 
     def valuesFromSchema(self):
         """
-                        Method Name: valuesFromSchema
+                        Method Name: values_from_schema
                         Description: This method extracts all the relevant information
                         from the pre-defined "Schema" file.
                         Output: column_names, Number of Columns
@@ -42,7 +42,7 @@ class Raw_Data_validation:
                 f.close()
             pattern = dic['SampleFileName']
             column_names = dic['ColName']
-            NumberofColumns = dic['NumberofColumns']
+            NumberofColumns = dic['number_of_columns']
 
             message = "Training file schema values loaded." + \
                       f"\tsample file name: {pattern}\tNumber of columns: {NumberofColumns}"
@@ -74,7 +74,7 @@ class Raw_Data_validation:
     @staticmethod
     def manualRegexCreation():
         """
-                                Method Name: manualRegexCreation
+                                Method Name: manual_regex_creation
                                 Description: This method contains a manually defined regex based
                                 on the "FileName" given in "Schema" file.This Regex is used to validate
                                  the filename of the training data.
@@ -90,7 +90,7 @@ class Raw_Data_validation:
     def createDirectoryForGoodBadRawData(self):
 
         """
-                                      Method Name: createDirectoryForGoodBadRawData
+                                      Method Name: create_directory_for_good_bad_raw_data
                                       Description: This method creates directories to store the Good Data and Bad Data
                                                     after validating the training data.
 
@@ -171,7 +171,7 @@ class Raw_Data_validation:
     def moveBadFilesToArchiveBad(self):
 
         """
-                                    Method Name: moveBadFilesToArchiveBad
+                                    Method Name: move_bad_files_to_archive_bad
                                     Description: This method deletes the directory made  to store the Bad Data
                                                   after moving the data in an archive folder. We archive the bad
                                                   files to send them back to the client for invalid data issue.
@@ -228,7 +228,7 @@ class Raw_Data_validation:
 
     def validationFileNameRaw(self, regex):
         """
-                    Method Name: validationFileNameRaw
+                    Method Name: validation_filename_raw
                     Description: This function validates the name of the training csv files
                                     as per given name in the schema! Regex pattern is used to do the validation.
                                     If name format do not match the file is moved to Bad Raw Data folder
@@ -281,7 +281,7 @@ class Raw_Data_validation:
 
     def validateColumnLength(self, NumberofColumns):
         """
-                          Method Name: validateColumnLength
+                          Method Name: validate_column_length
                           Description: This function validates the number of columns in the csv files.
                                        It should be same as given in the schema file.
                                        If not same file is not suitable for processing
@@ -318,7 +318,7 @@ class Raw_Data_validation:
 
     def validateMissingValuesInWholeColumn(self):
         """
-                            Method Name: validateMissingValuesInWholeColumn
+                            Method Name: validate_missing_values_in_whole_column
                             Description: This function validates if any column in the csv file has all values missing.
                                         If all the values are missing, the file is not suitable for processing.
                                         Such files are moved to bad raw data.

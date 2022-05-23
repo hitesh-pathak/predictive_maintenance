@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request
-from prediction_Validation_Insertion import pred_validation
+from prediction_Validation_Insertion import PredictionValidation
 from predictFromModel import prediction
 
 
@@ -18,7 +18,7 @@ def main():
         print(path)
 
         # predict based on filepath
-        validator = pred_validation(path)
+        validator = PredictionValidation(path)
 
         print(type(validator))
 

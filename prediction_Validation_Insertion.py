@@ -1,10 +1,10 @@
-from Prediction_Raw_Data_Validation.predictionDataValidation import Prediction_Data_validation
+from Prediction_Raw_Data_Validation.predictionDataValidation import PredictionDataValidation
 from DataTypeValidation_Insertion_Prediction.DataTypeValidationPrediction import dBOperation
 from application_logging import logger
 import os
 
 
-class pred_validation:  # train->pred
+class PredictionValidation:  # train->pred
     def __init__(self, path):
         # first create the log directory before anything
         if not os.path.isdir('Prediction_Logs'):
@@ -34,23 +34,23 @@ class pred_validation:  # train->pred
 
             # begin validation part, create validator
             self.log_writer.log(self.file_object, 'Start validation of files.')
-            validator = Prediction_Data_validation(self.path)
+            validator = PredictionDataValidation(self.path)
             self.log_writer.log(self.file_object, 'Created validator object.')
             # extracting values from prediction schema
             self.log_writer.log(self.file_object, 'Getting values from schema file')
-            column_names, noofcolumns = validator.valuesFromSchema()
+            column_names, no_of_columns = validator.values_from_schema()
             # getting the regex defined to validate filename
             self.log_writer.log(self.file_object, 'Getting file name regex')
-            regex = validator.manualRegexCreation()
+            regex = validator.manual_regex_creation()
             # validating filename of prediction files
             self.log_writer.log(self.file_object, 'Validating file name using regex')
-            validator.validationFileNameRaw(regex)
+            validator.validation_filename_raw(regex)
             # validating column length in the file
             self.log_writer.log(self.file_object, 'Validating number of columns')
-            validator.validateColumnLength(noofcolumns)
+            validator.validate_column_length(no_of_columns)
             # validating if any column has all values missing
             self.log_writer.log(self.file_object, 'Validating if any column has all NULL values.')
-            validator.validateMissingValuesInWholeColumn()
+            validator.validate_missing_values_in_whole_column()
             self.log_writer.log(self.file_object, "Raw Data Validation Complete!!")
 
             self.log_writer.log(self.file_object, "Starting database to csv file process.")
@@ -61,13 +61,13 @@ class pred_validation:  # train->pred
             self.log_writer.log(self.file_object, "Exporting csv files from tables completed")
 
             self.log_writer.log(self.file_object, "Cleaning up raw data directories")
-            validator.deleteExistingGoodDataPredictionFolder()  # Training->Prediction
+            validator.delete_existing_good_data_prediction_folder()  # Training->Prediction
             self.log_writer.log(self.file_object, "Good_Data folder deleted.")
 
             # Move the bad files to archive folder
             self.log_writer.log(self.file_object, "Moving bad files to Archive and deleting Bad_Data folder.")
-            validator.moveBadFilesToArchiveBad()
-            validator.deleteExistingBadDataPredictionFolder()
+            validator.move_bad_files_to_archive_bad()
+            validator.delete_existing_bad_data_prediction_folder()
             self.log_writer.log(self.file_object, "Bad files moved to archive!! Bad folder Deleted!!")
             self.log_writer.log(self.file_object, "Data validation and importing completed.")
 
