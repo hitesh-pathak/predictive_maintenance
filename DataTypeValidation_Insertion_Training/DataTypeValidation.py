@@ -43,7 +43,7 @@ class dBOperation:
     def dataBaseConnection(self, DatabaseName):
 
         """
-                Method Name: dataBaseConnection
+                Method Name: database_connection
                 Description: This method opens the connection to the DB with given name.
                 Output: Connection to the DB
                 On Failure: Raise ConnectionError or AuthenticationFailed
@@ -110,7 +110,7 @@ class dBOperation:
             raise notfound
         except AuthenticationFailed as authfail:
             file = open("Training_Logs/DataBaseConnectionLog.txt", 'a+')
-            self.logger.log(file, f"Authentication error occurred while trying to connect to Database : {authfail}")
+            self.logger.log(file, f"Authentication error occurred while trying to connect to database_name : {authfail}")
             self.logger.log(file, 'Please check your token.')
             file.close()
             raise authfail
@@ -128,7 +128,7 @@ class dBOperation:
 
     def createTableDb(self, DatabaseName, column_names, timeout_retry=True):
         """
-                        Method Name: createTableDb
+                        Method Name: create_table_db
                         Description: This method creates a table in the given database
                                     which will be used to insert the Good data after raw data validation.
                         Output: None
@@ -262,7 +262,7 @@ class dBOperation:
     def insertIntoTableGoodData(self, Database, timeout_retry=True):
 
         """
-                               Method Name: insertIntoTableGoodData
+                               Method Name: insert_into_table_good_data
 
                                Description: This method inserts the Good data files from the
                                             Good_Raw folder into database tables.
@@ -444,7 +444,7 @@ class dBOperation:
     def selectingDatafromtableintocsv(self, Database, timeout_retry=True, flush=True):
 
         """
-                        Method Name: selectingDatafromtableintocsv
+                        Method Name: selecting_data_from_table_into_csv
                         Description: This method exports the data in GoodData table as a CSV file. in a given location.
                                     above created .
                         Output: None
@@ -464,7 +464,7 @@ class dBOperation:
 
                 # column names is the schema dictionary
                 conn, column_names = self.insertIntoTableGoodData(Database)
-                self.logger.log(log_file, "Database insertion completed.")
+                self.logger.log(log_file, "database_name insertion completed.")
             else:
                 self.logger.log(log_file, "Flush is False, so program will pull existing tables without insertion")
                 conn = self.dataBaseConnection(Database)

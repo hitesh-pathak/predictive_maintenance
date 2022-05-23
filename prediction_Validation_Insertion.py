@@ -1,5 +1,5 @@
 from Prediction_Raw_Data_Validation.predictionDataValidation import PredictionDataValidation
-from DataTypeValidation_Insertion_Prediction.DataTypeValidationPrediction import dBOperation
+from DataTypeValidation_Insertion_Prediction.DataTypeValidationPrediction import DbOperation
 from application_logging import logger
 import os
 
@@ -14,7 +14,7 @@ class PredictionValidation:  # train->pred
         self.log_writer = logger.App_Logger()
         self.path = path
         # self.raw_data = Raw_Data_validation(path)
-        # self.dBOperation = dBOperation()
+        # self.DbOperation = DbOperation()
 
     def pred_validation(self):
         try:
@@ -55,9 +55,9 @@ class PredictionValidation:  # train->pred
 
             self.log_writer.log(self.file_object, "Starting database to csv file process.")
             # create db operation instance
-            db_operator = dBOperation()
+            db_operator = DbOperation()
             self.log_writer.log(self.file_object, "Created database operator.")
-            db_operator.selectingDatafromtableintocsv('predictdb')  # traindb->predictdb
+            db_operator.selecting_data_from_table_into_csv('predictdb')  # traindb->predictdb
             self.log_writer.log(self.file_object, "Exporting csv files from tables completed")
 
             self.log_writer.log(self.file_object, "Cleaning up raw data directories")

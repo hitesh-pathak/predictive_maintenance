@@ -14,7 +14,7 @@ class train_validation:
         self.log_writer = logger.App_Logger()
         self.path = path
         # self.raw_data = Raw_Data_validation(path)
-        # self.dBOperation = dBOperation()
+        # self.DbOperation = DbOperation()
 
     def train_validation(self):
         try:

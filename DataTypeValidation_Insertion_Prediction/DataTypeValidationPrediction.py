@@ -4,7 +4,6 @@ from cassandra import Timeout, Unavailable, ConsistencyLevel, AuthenticationFail
 from cassandra.policies import ConstantSpeculativeExecutionPolicy
 from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT
 from cassandra.auth import PlainTextAuthProvider
-from cassandra.concurrent import execute_concurrent_with_args
 import os
 import json
 import csv
@@ -15,16 +14,16 @@ import decimal
 from application_logging.logger import App_Logger
 
 
-class dBOperation:
+class DbOperation:
     """
       This class shall be used for handling all the database related operations.
 
     """
 
     def __init__(self):
-        self.badFilePath = "Prediction_Raw_files_validated/Bad_Raw"
-        self.goodFilePath = "Prediction_Raw_files_validated/Good_Raw"
-        self.fileFromDb = 'Prediction_FileFromDB/'
+        self.badFilePath = os.path.join("Prediction_Raw_Files_Validated", "Bad_Raw")
+        self.goodFilePath = os.path.join("Prediction_Raw_Files_Validated", "Good_Raw")
+        self.fileFromDb = 'Prediction_FileFromDB'
         self.logger = App_Logger()
 
         # prelim checks
@@ -40,10 +39,10 @@ class dBOperation:
             error = NotADirectoryError('Good file path is not a directory, exiting.')
             raise error
 
-    def dataBaseConnection(self, DatabaseName):
+    def database_connection(self, database_name):
 
         """
-                Method Name: dataBaseConnection
+                Method Name: database_connection
                 Description: This method opens the connection to the DB with given name.
                 Output: Connection to the DB
                 On Failure: Raise ConnectionError or AuthenticationFailed
@@ -51,7 +50,7 @@ class dBOperation:
     """
         try:
             file = open("Prediction_Logs/DataBaseConnectionLog.txt", 'a+')
-            self.logger.log(file, f"Trying to connect to database {DatabaseName}")
+            self.logger.log(file, f"Trying to connect to database {database_name}")
 
             if not os.path.isfile('astradb/secure-connect-training.zip'):
                 self.logger.log(file, "Connection config file 'astradb/secure-connect-training.zip' not found.")
@@ -77,30 +76,30 @@ class dBOperation:
             auth_provider = PlainTextAuthProvider(db_id, db_pass)
 
             # make a execution profile with pandas row factory and no timeout, used in exporting to csv
-            def pandas_factory(colnames, rows):
-                return pd.DataFrame(rows, columns=colnames)
+            def pandas_factory(col_names, rows):
+                return pd.DataFrame(rows, columns=col_names)
 
-            pandaspolicy = ExecutionProfile(
+            pandas_policy = ExecutionProfile(
                 speculative_execution_policy=ConstantSpeculativeExecutionPolicy(delay=.5, max_attempts=10),
                 request_timeout=None,
                 row_factory=pandas_factory
             )
 
-            sepolicy = ExecutionProfile(
+            se_policy = ExecutionProfile(
                 speculative_execution_policy=ConstantSpeculativeExecutionPolicy(delay=.5, max_attempts=10),
                 request_timeout=30,
             )
 
             profiles = {
-                EXEC_PROFILE_DEFAULT: sepolicy,
-                'pandas_profile': pandaspolicy
+                EXEC_PROFILE_DEFAULT: se_policy,
+                'pandas_profile': pandas_policy
             }
 
             cluster = Cluster(cloud=cloud_config, auth_provider=auth_provider, connect_timeout=20,
                               execution_profiles=profiles)
-            self.logger.log(file, f"Attemption to open database {DatabaseName}.")
-            conn = cluster.connect(DatabaseName)
-            self.logger.log(file, "Opened %s database successfully" % DatabaseName)
+            self.logger.log(file, f"Attemption to open database {database_name}.")
+            conn = cluster.connect(database_name)
+            self.logger.log(file, "Opened %s database successfully" % database_name)
             file.close()
 
         except FileNotFoundError as notfound:
@@ -110,7 +109,8 @@ class dBOperation:
             raise notfound
         except AuthenticationFailed as authfail:
             file = open("Prediction_Logs/DataBaseConnectionLog.txt", 'a+')
-            self.logger.log(file, f"Authentication error occurred while trying to connect to Database : {authfail}")
+            self.logger.log(file,
+                            f"Authentication error occurred while trying to connect to database_name : {authfail}")
             self.logger.log(file, 'Please check your token.')
             file.close()
             raise authfail
@@ -126,9 +126,9 @@ class dBOperation:
         else:
             return conn
 
-    def createTableDb(self, DatabaseName, column_names, timeout_retry=True):
+    def create_table_db(self, database_name, column_names, timeout_retry=True):
         """
-                        Method Name: createTableDb
+                        Method Name: create_table_db
                         Description: This method creates a table in the given database
                                     which will be used to insert the Good data after raw data validation.
                         Output: None
@@ -142,7 +142,7 @@ class dBOperation:
             # log_file = open("Training_Logs/DbTableCreateLog.txt", 'a+')
             self.logger.log(log_file, 'Initialise table creation')
             self.logger.log(log_file, 'Connecting to database.')
-            conn = self.dataBaseConnection(DatabaseName)
+            conn = self.database_connection(database_name)
             self.logger.log(log_file, 'Connection established')
 
             # create the schema same for all tables
@@ -158,7 +158,7 @@ class dBOperation:
             self.logger.log(log_file, f"Checking if tables exit, if so drop the existing tables.")
             for name in table_name_list:
                 # del statement
-                del_text = f"DROP TABLE IF EXISTS {DatabaseName}.{name}"
+                del_text = f"DROP TABLE IF EXISTS {database_name}.{name}"
                 del_stmt = SimpleStatement(del_text)
                 del_stmt.is_idempotent = True
 
@@ -172,7 +172,7 @@ class dBOperation:
                 del future1
 
             # check for metadata table
-            del_meta = f'DROP TABLE IF EXISTS {DatabaseName}.prediction_meta_data'
+            del_meta = f'DROP TABLE IF EXISTS {database_name}.prediction_meta_data'
             del_meta = SimpleStatement(del_meta)
             del_meta.is_idempotent = True
             conn.execute(del_meta)
@@ -198,7 +198,7 @@ class dBOperation:
 
             for name in table_exist:
                 # create statement
-                create_stmt = f"CREATE TABLE {DatabaseName}.{name} ({table_schema}" + \
+                create_stmt = f"CREATE TABLE {database_name}.{name} ({table_schema}" + \
                               ", PRIMARY KEY (unit_nr, time_cycles)) WITH CLUSTERING ORDER BY (time_cycles ASC);"
 
                 # build  list of futures
@@ -212,7 +212,7 @@ class dBOperation:
                 self.logger.log(log_file, "Created new tables.")
 
             # create meta table as well, meta table contains data about the tables
-            stmt = f"CREATE TABLE {DatabaseName}.prediction_meta_data " + \
+            stmt = f"CREATE TABLE {database_name}.prediction_meta_data " + \
                    "(table_name VARCHAR, unit_nr_range INT, total_rows INT, PRIMARY KEY (table_name))"
             query = SimpleStatement(stmt)
             self.logger.log(log_file, "Creating meta data table training_meta_data.")
@@ -226,7 +226,7 @@ class dBOperation:
                 conn.shutdown()
             if timeout_retry:
                 self.logger.log(log_file, f'Retrying table creation.!!')
-                return self.createTableDb(DatabaseName, column_names, timeout_retry=False)
+                return self.create_table_db(database_name, column_names, timeout_retry=False)
             else:
                 self.logger.log(log_file, f'Operation timed out while creating tables, quitting!!: str{timeout}')
                 log_file.close()
@@ -239,7 +239,7 @@ class dBOperation:
                 conn.shutdown()
             if timeout_retry:
                 self.logger.log(log_file, f'Retrying table creation!!')
-                return self.createTableDb(DatabaseName, column_names, timeout_retry=False)
+                return self.create_table_db(database_name, column_names, timeout_retry=False)
 
             else:
                 self.logger.log(log_file, f"Error: Nodes unavailable, terminating: {unavailable}")
@@ -259,10 +259,10 @@ class dBOperation:
             log_file.close()
             return conn  # column names contains the schema file
 
-    def insertIntoTableGoodData(self, Database, timeout_retry=True):
+    def insert_into_table_good_data(self, database_name, timeout_retry=True):
 
         """
-                               Method Name: insertIntoTableGoodData
+                               Method Name: insert_into_table_good_data
 
                                Description: This method inserts the Good data files from the
                                             Good_Raw folder into database tables.
@@ -285,15 +285,15 @@ class dBOperation:
         cols = ', '.join(column_names.keys())  # used later in query
 
         self.logger.log(log_file, 'Connecting to database and waiting for  table creation.')
-        conn = self.createTableDb(Database, column_names)
+        conn = self.create_table_db(database_name, column_names)
         if conn is None:  # if connection fails abort immediately
-            error = ConnectionError(f'Failed to create required tables in {Database} database.')
+            error = ConnectionError(f'Failed to create required tables in {database_name} database.')
             self.logger.log(log_file, error)
             raise error
 
         self.logger.log(log_file, 'Verifying existence of meta data table.')
         check_meta = "SELECT table_name FROM system_schema.tables " + \
-                      f"WHERE keyspace_name='{Database}' AND table_name='prediction_meta_data'"
+                     f"WHERE keyspace_name='{database_name}' AND table_name='prediction_meta_data'"
         check_meta = SimpleStatement(check_meta)
         check_meta.is_idempotent = True
         ismeta = conn.execute(check_meta)
@@ -302,15 +302,15 @@ class dBOperation:
             conn.shutdown()
             if timeout_retry:
                 self.logger.log(log_file, 'Retrying....!')
-                return self.insertIntoTableGoodData(Database=Database, timeout_retry=False)
+                return self.insert_into_table_good_data(database_name=database_name, timeout_retry=False)
             else:
                 error = Exception('Required metadata table not found in database.')
                 self.logger.log(log_file, f'Error: {error}')
                 raise error
         self.logger.log(log_file, "Required metadata table exists.")
 
-        goodFilePath = self.goodFilePath
-        badFilePath = self.badFilePath
+        good_file_path = self.goodFilePath
+        bad_file_path = self.badFilePath
         onlyfiles = [f for f in os.listdir(self.goodFilePath)
                      if os.path.isfile(os.path.join(self.goodFilePath, f))]
         # count = 1
@@ -330,13 +330,13 @@ class dBOperation:
                     self.logger.log(log_file, f"Uploading {file} to {table_name} table.")
                 else:
                     self.logger.log(log_file, f'File {file} does not have valid name!! Moving to bad files')
-                    shutil.move(goodFilePath + '/' + file, badFilePath)
+                    shutil.move(good_file_path + '/' + file, bad_file_path)
                     self.logger.log(log_file, f'{file} moved to bad files directory successfully.')
                     continue
 
                 # let us check if this table exists..in db
                 check_query = "SELECT table_name FROM system_schema.tables " + \
-                              f"WHERE keyspace_name='{Database}' AND table_name='{table_name}'"
+                              f"WHERE keyspace_name='{database_name}' AND table_name='{table_name}'"
                 check_stmt = SimpleStatement(check_query)
                 check_stmt.is_idempotent = True
 
@@ -348,17 +348,17 @@ class dBOperation:
                     conn.shutdown()
                     if timeout_retry:
                         self.logger.log(log_file, 'Retrying data insertion.')
-                        return self.insertIntoTableGoodData(Database, timeout_retry=False)
+                        return self.insert_into_table_good_data(database_name, timeout_retry=False)
                     else:
                         self.logger.log(log_file, 'Aborting!')
                         raise error
 
                 # prepare insert stmt
-                insert_stm = f"INSERT INTO {Database}.{table_name} ({cols}) VALUES ( {qmarks} )"
+                insert_stm = f"INSERT INTO {database_name}.{table_name} ({cols}) VALUES ( {qmarks} )"
                 insert_prep = conn.prepare(insert_stm)
 
                 # load file into pandas
-                data = pd.read_csv(goodFilePath + '/' + file, sep=r'\s+', header=None)
+                data = pd.read_csv(good_file_path + '/' + file, sep=r'\s+', header=None)
 
                 params = zip(*[data[c] for c in range(data.shape[1])])
                 total_queries = data.shape[0]
@@ -411,7 +411,7 @@ class dBOperation:
                 conn.shutdown()
                 if timeout_retry:
                     self.logger.log(log_file, f'Retrying to upload {file}!!')
-                    return self.insertIntoTableGoodData(Database, timeout_retry=False)
+                    return self.insert_into_table_good_data(database_name, timeout_retry=False)
 
                 else:
                     self.logger.log(log_file, f'Operation timed out while trying to upload file. Quitting: {timeout}')
@@ -424,7 +424,7 @@ class dBOperation:
                 conn.shutdown()
                 if timeout_retry:
                     self.logger.log(log_file, f'Retrying to upload {file}!!')
-                    return self.insertIntoTableGoodData(Database, timeout_retry=False)
+                    return self.insert_into_table_good_data(database_name, timeout_retry=False)
 
                 else:
                     self.logger.log(log_file, f"Error: Nodes unavailable, terminating: {unavailable}")
@@ -441,10 +441,10 @@ class dBOperation:
             log_file.close()
             return conn, column_names
 
-    def selectingDatafromtableintocsv(self, Database, timeout_retry=True, flush=True):
+    def selecting_data_from_table_into_csv(self, database_name, timeout_retry=True, flush=True):
 
         """
-                        Method Name: selectingDatafromtableintocsv
+                        Method Name: selecting_data_from_table_into_csv
                         Description: This method exports the data in GoodData table as a CSV file. in a given location.
                                     above created .
                         Output: None
@@ -463,11 +463,11 @@ class dBOperation:
                 self.logger.log(log_file, "Flush is True, flush old tables and initiate database insertion.")
 
                 # column names is the schema dictionary
-                conn, column_names = self.insertIntoTableGoodData(Database)
-                self.logger.log(log_file, "Database insertion completed.")
+                conn, column_names = self.insert_into_table_good_data(database_name)
+                self.logger.log(log_file, "database_name insertion completed.")
             else:
                 self.logger.log(log_file, "Flush is False, so program will pull existing tables without insertion")
-                conn = self.dataBaseConnection(Database)
+                conn = self.database_connection(database_name)
                 # self.logger.log(log_file, "Connection established.")
                 self.logger.log(log_file, "Manually fetching column names from schema file.")
                 # manually fetch column names, if fetched from database col names can be out of order
@@ -490,7 +490,7 @@ class dBOperation:
             self.logger.log(log_file, "Connection established to database. Now begin reading tables.")
             # fetch existing tables from database
 
-            stmt = f"SELECT table_name FROM system_schema.tables WHERE keyspace_name='{Database}'"
+            stmt = f"SELECT table_name FROM system_schema.tables WHERE keyspace_name='{database_name}'"
             stmt = SimpleStatement(stmt)
             stmt.is_idempotent = True
             self.logger.log(log_file, "Finding existing tables in database.")
@@ -498,12 +498,12 @@ class dBOperation:
 
             tables_exist = set()
             for result in tables:
-                name = getattr(result, 'table_name') # result.table_name
+                name = getattr(result, 'table_name')  # result.table_name
                 if name in table_name_list:
                     tables_exist.add(name)
                     self.logger.log(log_file, f"Found relevant table {name}.")
             if not tables_exist:  # no tables exist that are relevant to us
-                error = Exception(f'No relevant existing tables found in database {Database}. Quitting!')
+                error = Exception(f'No relevant existing tables found in database {database_name}. Quitting!')
                 self.logger.log(log_file, f"Error: {error}")
                 raise error
 
@@ -534,8 +534,8 @@ class dBOperation:
             for name in tables_exist:
                 # fetch meta data
                 self.logger.log(log_file, f"Loading metadata for table {name}.")
-                get_meta = \
-                    f"SELECT unit_nr_range,total_rows FROM {Database}.prediction_meta_data WHERE table_name='{name}'"
+                get_meta = "SELECT unit_nr_range,total_rows FROM " + \
+                           f"{database_name}.prediction_meta_data WHERE table_name='{name}'"
                 get_meta = SimpleStatement(get_meta)
                 get_meta.is_idempotent = True
                 metadata = conn.execute(get_meta)
@@ -548,7 +548,7 @@ class dBOperation:
                     self.logger.log(log_file, f"Error occurred in meta data processing: {e}")
                     raise e
 
-                select_stmt = f"SELECT * FROM {Database}.{name} WHERE unit_nr=? ORDER BY time_cycles ASC"
+                select_stmt = f"SELECT * FROM {database_name}.{name} WHERE unit_nr=? ORDER BY time_cycles ASC"
                 select_prep = conn.prepare(select_stmt)
                 select_prep.is_idempotent = True
                 select_prep.consistency_level = ConsistencyLevel.ONE  # set low consistency level
@@ -612,7 +612,7 @@ class dBOperation:
                 conn.shutdown()
             if timeout_retry:
                 self.logger.log(log_file, f'Retrying write tables to csv!!')
-                return self.selectingDatafromtableintocsv(Database, timeout_retry=False, flush=flush)
+                return self.selecting_data_from_table_into_csv(database_name, timeout_retry=False, flush=flush)
             else:
                 self.logger.log(log_file, f'Unable to export table to csv file. Quitting: {timeout}')
                 # if conn is not None: conn.shutdown()
@@ -627,7 +627,7 @@ class dBOperation:
                 conn.shutdown()
             if timeout_retry:
                 self.logger.log(log_file, f'Retrying write tables to csv!!')
-                return self.selectingDatafromtableintocsv(Database, timeout_retry=False, flush=flush)
+                return self.selecting_data_from_table_into_csv(database_name, timeout_retry=False, flush=flush)
 
             else:
                 self.logger.log(log_file, f"Error: Nodes unavailable, terminating: {unavailable}")
