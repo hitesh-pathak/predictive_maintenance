@@ -10,27 +10,28 @@ app = Flask(__name__)
 @app.route('/', methods=['GET', 'POST'])
 def main():
 
-    try:
-        if request.method == 'POST':
-            # Extract the input
-            path = request.form.get('filepath')
+    # try:
+    if request.method == 'POST':
+        # Extract the input
+        path = request.form.get('filepath')
 
-            print(path)
+        print(path)
 
-            # predict based on filepath
-            validator = pred_validation(path)
+        # predict based on filepath
+        validator = pred_validation(path)
 
-            print(type(validator))
-            # validator.pred_validation()
-            #
-            # # save predictions using models
-            # predictor = prediction()
-            # predictor.predictionFromModel()
+        print(type(validator))
 
-            return render_template("index.html", result = 'Predictions saved successfully.')
+        validator.pred_validation()
+        #
+        # # save predictions using models
+        # predictor = prediction()
+        # predictor.predictionFromModel()
 
-        elif request.method == 'GET':
-            return render_template('index.html')
+        return render_template("index.html", result = 'Predictions saved successfully.')
 
-    except Exception as e:
-        return render_template("index.html", result = f'Error: {e}')
+    elif request.method == 'GET':
+        return render_template('index.html')
+
+    # except Exception as e:
+    #     return render_template("index.html", result = f'Error: {e}')
