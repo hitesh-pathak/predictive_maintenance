@@ -15,8 +15,12 @@ def main():
             # Extract the input
             path = request.form.get('filepath')
 
+            print(path)
+
             # predict based on filepath
-            # validator = pred_validation(path)
+            validator = pred_validation(path)
+
+            print(type(validator))
             # validator.pred_validation()
             #
             # # save predictions using models
