@@ -259,7 +259,7 @@ class DbOperation:
             log_file.close()
             return conn  # column names contains the schema file
 
-    def insert_into_table_good_data(self, database_name, timeout_retry=True):
+    def insert_into_table_good_data(self, database_name, timeout_retry=True, conc_level=5000):
 
         """
                                Method Name: insert_into_table_good_data
@@ -291,30 +291,30 @@ class DbOperation:
             self.logger.log(log_file, error)
             raise error
 
-        self.logger.log(log_file, 'Verifying existence of meta data table.')
-        check_meta = "SELECT table_name FROM system_schema.tables " + \
-                     f"WHERE keyspace_name='{database_name}' AND table_name='prediction_meta_data'"
-        check_meta = SimpleStatement(check_meta)
-        check_meta.is_idempotent = True
-        ismeta = conn.execute(check_meta)
-        if not ismeta[0].table_name == 'prediction_meta_data':
-            self.logger.log(log_file, 'Required metadata table not found in database.')
-            conn.shutdown()
-            if timeout_retry:
-                self.logger.log(log_file, 'Retrying....!')
-                return self.insert_into_table_good_data(database_name=database_name, timeout_retry=False)
-            else:
-                error = Exception('Required metadata table not found in database.')
-                self.logger.log(log_file, f'Error: {error}')
-                raise error
-        self.logger.log(log_file, "Required metadata table exists.")
+        # self.logger.log(log_file, 'Verifying existence of meta data table.')
+        # check_meta = "SELECT table_name FROM system_schema.tables " + \
+        #              f"WHERE keyspace_name='{database_name}' AND table_name='prediction_meta_data'"
+        # check_meta = SimpleStatement(check_meta)
+        # check_meta.is_idempotent = True
+        # ismeta = conn.execute(check_meta)
+        # if not ismeta[0].table_name == 'prediction_meta_data':
+        #     self.logger.log(log_file, 'Required metadata table not found in database.')
+        #     conn.shutdown()
+        #     if timeout_retry:
+        #         self.logger.log(log_file, 'Retrying....!')
+        #         return self.insert_into_table_good_data(database_name=database_name, timeout_retry=False)
+        #     else:
+        #         error = Exception('Required metadata table not found in database.')
+        #         self.logger.log(log_file, f'Error: {error}')
+        #         raise error
+        # self.logger.log(log_file, "Required metadata table exists.")
 
         good_file_path = self.goodFilePath
         bad_file_path = self.badFilePath
         onlyfiles = [f for f in os.listdir(self.goodFilePath)
                      if os.path.isfile(os.path.join(self.goodFilePath, f))]
         # count = 1
-        conc_level = 5000
+        # conc_level = 5000
 
         # construct insertion query
         qmarks = ', '.join('?' * 26)
@@ -334,24 +334,24 @@ class DbOperation:
                     self.logger.log(log_file, f'{file} moved to bad files directory successfully.')
                     continue
 
-                # let us check if this table exists..in db
-                check_query = "SELECT table_name FROM system_schema.tables " + \
-                              f"WHERE keyspace_name='{database_name}' AND table_name='{table_name}'"
-                check_stmt = SimpleStatement(check_query)
-                check_stmt.is_idempotent = True
+                # # let us check if this table exists..in db
+                # check_query = "SELECT table_name FROM system_schema.tables " + \
+                #               f"WHERE keyspace_name='{database_name}' AND table_name='{table_name}'"
+                # check_stmt = SimpleStatement(check_query)
+                # check_stmt.is_idempotent = True
 
-                self.logger.log(log_file, f"Checking table name {table_name} in database.")
-                check = conn.execute(check_stmt)
-                if not check[0].table_name == table_name:
-                    error = Exception('The required table for insertion does not exist in database.')
-                    self.logger.log(log_file, error)
-                    conn.shutdown()
-                    if timeout_retry:
-                        self.logger.log(log_file, 'Retrying data insertion.')
-                        return self.insert_into_table_good_data(database_name, timeout_retry=False)
-                    else:
-                        self.logger.log(log_file, 'Aborting!')
-                        raise error
+                # self.logger.log(log_file, f"Checking table name {table_name} in database.")
+                # check = conn.execute(check_stmt)
+                # if not check[0].table_name == table_name:
+                #     error = Exception('The required table for insertion does not exist in database.')
+                #     self.logger.log(log_file, error)
+                #     conn.shutdown()
+                #     if timeout_retry:
+                #         self.logger.log(log_file, 'Retrying data insertion.')
+                #         return self.insert_into_table_good_data(database_name, timeout_retry=False)
+                #     else:
+                #         self.logger.log(log_file, 'Aborting!')
+                #         raise error
 
                 # prepare insert stmt
                 insert_stm = f"INSERT INTO {database_name}.{table_name} ({cols}) VALUES ( {qmarks} )"

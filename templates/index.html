@@ -1,53 +1,59 @@
-<!doctype html>
-
+<!DOCTYPE html>
 <html>
-    <head>
-
-        <!-- CSS code -->
-        <style>
-        form {
-            margin: auto;
-            width: 35%;
-        }
-
-        .result {
-            margin: auto;
-            width: 35%;
-            border: 1px solid #ccc;
-        }
-        </style>
-
-        <title>RUL prediction model</title>
-    </head>
-
-    <body>
-
-        <!-- Use the action attribute to call the 'main' function -->
-        <form action="{{ url_for('main') }}" method="POST">
-        <fieldset>
-            <legend>Input values:</legend>
-            Input prediction path:
-            <!-- Required attribute is used to make sure people input values -->
-            <input name="filepath" type="text" required>
-            <br>
-            <input type="submit">
-        </fieldset>
-        </form>
-
-        <br>
-
-        <div class="result" align="center">
-
-            <!-- Our 'result' is false until a prediction has been made -->
-            {% if result %}
-                <!-- Print result -->
-                <br> Result:
-                <p>{{ result }}</p>
-
-            {% else %}
-                <br> Result:
-
-            {% endif %}
+  <head>
+    <title>rul-predictor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css" rel="stylesheet" media="screen">
+    <style>
+      .container {
+        max-width: 1000px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="row">
+        <div class="col-sm-5 col-sm-offset-1">
+          <h1>RUL predictor</h1>
+          <br>
+          <form role="form" method="POST" action="/">
+            <div class="form-group">
+              <input type="text" name="filepath" class="form-control" id="url-box" placeholder="Enter URL..." style="max-width: 300px;">
+            </div>
+            <button type="submit" class="btn btn-default">Submit</button>
+          </form>
+          <br>
+          {% for error in errors %}
+            <h4>{{ error }}</h4>
+          {% endfor %}
+          <br>
         </div>
-
-    </body>
+        <div class="col-sm-5 col-sm-offset-1">
+          {% if results %}
+            <h2>Frequencies</h2>
+            <br>
+            <div id="results">
+              <table class="table table-striped" style="max-width: 300px;">
+                <thead>
+                  <tr>
+                    <th>Word</th>
+                    <th>Count</th>
+                  </tr>
+                </thead>
+                {% for result in results%}
+                  <tr>
+                    <td>{{ result[0] }}</td>
+                    <td>{{ result[1] }}</td>
+                  </tr>
+                {% endfor %}
+              </table>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <br><br>
+    <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+    <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+  </body>
+</html>

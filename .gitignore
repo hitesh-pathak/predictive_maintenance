@@ -8,3 +8,5 @@
 /PredictionArchiveBadData/
 /Prediction_FileFromDB/
 /preprocessing_data/
+**/__pycache__/
+**/.idea/

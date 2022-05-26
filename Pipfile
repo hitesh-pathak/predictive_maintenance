@@ -12,6 +12,8 @@ kneed = "*"
 xgboost = "*"
 flask = "*"
 gunicorn = "*"
+redis = "*"
+rq = "*"
 
 [dev-packages]
 
