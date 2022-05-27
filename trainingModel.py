@@ -28,7 +28,7 @@ class trainModel:
             try:
                 # Getting the data from the source
                 self.log_writer.log(self.file_object, 'Start data ingestion.')
-                data_getter = data_loader.Data_Getter(self.file_object, self.log_writer)
+                data_getter = data_loader.DataGetter(self.file_object, self.log_writer)
                 datagen = data_getter.get_data()
                 self.log_writer.log(self.file_object, 'Data ingestion completed.')
 

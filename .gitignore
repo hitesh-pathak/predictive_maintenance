@@ -10,3 +10,4 @@
 /preprocessing_data/
 **/__pycache__/
 **/.idea/
+.vscode/

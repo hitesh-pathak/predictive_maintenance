@@ -1,13 +1,18 @@
-import pandas as pd
+'''
+This module takes care of data ingestion.
+'''
 import os
 import re
 
+import pandas as pd
 
-class Data_Getter:
+
+class DataGetter:
     """
     This class shall  be used for obtaining the data files for training.
     """
-    def __init__(self, file_object, logger_object, mode='train'):
+    def __init__(self, file_object, logger_object,
+                mode: str='train', path: str='Training_FileFromDB'):
 
         self.file_object = file_object
         self.logger_object = logger_object
@@ -18,17 +23,14 @@ class Data_Getter:
             self.logger_object(self.file_object, f"Error: {error}!")
             raise error
 
-        if self.mode == 'train':
-            self.loading_directory = 'Training_FileFromDB/'
-        elif self.mode in ['predict', 'test']:
-            self.loading_directory = 'Prediction_FileFromDB/'
+        self.loading_directory = path
 
         # prelim checks
         if not os.path.isdir(self.loading_directory):
             error = NotADirectoryError('Loading directory does not exist, exiting.')
             self.logger_object.log(self.file_object, f'Error: {error}')
             raise error
-        elif not [f for f in os.listdir(self.loading_directory)
+        if not [f for f in os.listdir(self.loading_directory)
                   if os.path.isfile(os.path.join(self.loading_directory, f))]:
             error = FileNotFoundError('Loading directory does not contain any files, exiting.')
             self.logger_object.log(self.file_object, f"Error: {error}")
@@ -44,37 +46,45 @@ class Data_Getter:
 
         On Failure: Raise Exception
         """
-        self.logger_object.log(self.file_object, 'Entered the get_data method of the Data_Getter class')
+        self.logger_object.log(self.file_object,
+                                'Entered the get_data method of the Data_Getter class')
         try:
-            # file_list = ['train_input_00' + k + '.csv' for k in range(1, 5)]
+
             if self.mode == 'train':
                 regex = re.compile(r"^train_input_00[1-4]\.csv$")
             else:
                 regex = re.compile(r"^test_input_00[1-4]\.csv$")
 
-            self.logger_object.log(self.file_object, f"Checking all valid files in {self.loading_directory}.")
+            self.logger_object.log(self.file_object,
+                                    f"Checking all valid files in {self.loading_directory}.")
+
             onlyfiles = [f for f in os.listdir(self.loading_directory)
-                         if os.path.isfile(os.path.join(self.loading_directory, f)) and regex.match(f)]
+                         if os.path.isfile(os.path.join(self.loading_directory, f))
+                          and regex.match(f)]
 
             if not onlyfiles:
-                error = FileNotFoundError(f"No valid files found in {self.loading_directory}. Quitting!")
+                error = FileNotFoundError(
+                            f"No valid files found in {self.loading_directory}. Quitting!")
                 self.logger_object.log(self.file_object, f"Error: {error}")
                 raise error
-            self.logger_object.log(self.file_object, "Generating dataframe generator object for files.")
+            self.logger_object.log(self.file_object,
+                                    "Generating dataframe generator object for files.")
 
             # define data generator object
             def data_gen():
-                for f in onlyfiles:
-                    file_path = os.path.join(self.loading_directory, f)
+                for file in onlyfiles:
+                    file_path = os.path.join(self.loading_directory, file)
                     df = pd.read_csv(file_path)
-                    yield df, f
+                    yield df, file
 
             self.logger_object.log(self.file_object,
-                                   'Data Load Successful.Exited the get_data method of the Data_Getter class')
+                                   'Data Load Successful' + \
+                                       f'Exited the get_data method of the {__class__}')
             return data_gen
 
         except Exception as e:
-            self.logger_object.log(self.file_object, f'Error in get_data method of the Data_Getter class: {e}')
             self.logger_object.log(self.file_object,
-                                   'Data Load Unsuccessful.Exited the get_data method of the Data_Getter class')
+                                f'Error in get_data method of the Data_Getter class: {e}')
+            self.logger_object.log(self.file_object,
+                            f'Data Load Unsuccessful.Exited the get_data method of {__class__}')
             raise e

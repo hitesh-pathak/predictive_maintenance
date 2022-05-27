@@ -1,32 +1,42 @@
-from flask import Flask, render_template, request
+'''
+FastAPI backend
+'''
+from fastapi import FastAPI, status
+from fastapi.responses import JSONResponse
 from rq import Queue
-import json
 from rq.job import Job
 from worker import conn
 from gen_prediction import gen_prediction
+from custom_modules import FilePath, BackgroundTask, Result
 
 
-# Initialise Flask app
-app = Flask(__name__)
+app = FastAPI()
 
-# set up a redis queue based on the connection
-q = Queue(connection=conn, default_timeout = 1000)
+# set up redis queue
+q = Queue(connection=conn, default_timeout=1000)
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    return render_template('index.html')
+@app.post('/predict', status_code=status.HTTP_202_ACCEPTED, response_model=BackgroundTask)
+async def start_prediction(filepath: FilePath):
+    '''
+        Create a prediction job and return the job id.
+    '''
+
+    job = q.enqueue_call(func=gen_prediction, args=(filepath.filepath, ), result_ttl=1000)
+    return {'job_id': str(job.get_id()), 'status': 'Processing'}
 
 
-@app.route('/start', methods=['POST'])
-def get_counts():
+@app.get('/results/{job_id}', status_code=status.HTTP_200_OK, response_model=Result,
+        responses={status.HTTP_202_ACCEPTED:
+         {'model': BackgroundTask, 'description': 'Processing in the background'}},)
+async def get_result(job_id: str):
+    '''
+        Fetch status for a given background job by its id.
+    '''
+    job = Job.fetch(job_id, connection=conn)
 
-    # get url
-    data = json.loads(request.data.decode())
-    filepath = data["filepath"]
+    if not job.is_finished:
+        return JSONResponse(status_code=status.HTTP_202_ACCEPTED,
+                             content={'job_id': job_id, 'status': 'Processing...'})
 
-    # start job
-    job = q.enqueue_call(
-        func=gen_prediction, args=(filepath,), result_ttl=1000
-    )
-    # return created job id
-    return job.get_id()
+    result = job.result
+    return {'result': result}

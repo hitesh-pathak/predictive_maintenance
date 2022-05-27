@@ -30,13 +30,13 @@ class DbOperation:
         if not os.path.isdir(self.goodFilePath):
             error = NotADirectoryError('Good file path is not a directory, exiting.')
             raise error
-        elif not [f for f in os.listdir(self.goodFilePath)
+        if not [f for f in os.listdir(self.goodFilePath)
                   if os.path.isfile(os.path.join(self.goodFilePath, f))]:
             error = FileNotFoundError('Good file path does not contain any files, exiting.')
             raise error
 
         if not os.path.isdir(self.badFilePath):
-            error = NotADirectoryError('Good file path is not a directory, exiting.')
+            error = NotADirectoryError('Bad file path is not a directory, exiting.')
             raise error
 
     def database_connection(self, database_name):
@@ -44,7 +44,9 @@ class DbOperation:
         """
                 Method Name: database_connection
                 Description: This method opens the connection to the DB with given name.
+
                 Output: Connection to the DB
+                
                 On Failure: Raise ConnectionError or AuthenticationFailed
 
     """

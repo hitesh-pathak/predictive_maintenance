@@ -1,3 +1,6 @@
+'''
+Bacground worker that uses Redis queue to process requests.
+'''
 import os
 import sys
 import redis
@@ -5,7 +8,8 @@ from rq import Worker, Queue, Connection
 
 listen = ['default']
 
-redis_url = os.getenv('REDISTOGO_URL', 'redis://:simpulpass.@redis-13792.c301.ap-south-1-1.ec2.cloud.redislabs.com:13792')
+redis_url = os.getenv('REDISTOGO_URL',
+            'redis://:simpulpass.@redis-13792.c301.ap-south-1-1.ec2.cloud.redislabs.com:13792')
 
 conn = redis.from_url(redis_url)
 
