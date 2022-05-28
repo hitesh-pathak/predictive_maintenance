@@ -10,11 +10,9 @@ sklearn = "*"
 matplotlib = "*"
 kneed = "*"
 xgboost = "*"
-flask = "*"
 gunicorn = "*"
 redis = "*"
 rq = "*"
-fastapi = "*"
 streamlit = "*"
 
 [dev-packages]

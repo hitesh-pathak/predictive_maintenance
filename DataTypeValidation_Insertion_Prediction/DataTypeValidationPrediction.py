@@ -26,20 +26,7 @@ class DbOperation:
         self.fileFromDb = 'Prediction_FileFromDB'
         self.logger = App_Logger()
 
-        # prelim checks
-        if not os.path.isdir(self.goodFilePath):
-            error = NotADirectoryError('Good file path is not a directory, exiting.')
-            raise error
-        if not [f for f in os.listdir(self.goodFilePath)
-                  if os.path.isfile(os.path.join(self.goodFilePath, f))]:
-            error = FileNotFoundError('Good file path does not contain any files, exiting.')
-            raise error
-
-        if not os.path.isdir(self.badFilePath):
-            error = NotADirectoryError('Bad file path is not a directory, exiting.')
-            raise error
-
-    def database_connection(self, database_name):
+    def _database_connection(self, database_name):
 
         """
                 Method Name: database_connection
@@ -128,7 +115,7 @@ class DbOperation:
         else:
             return conn
 
-    def create_table_db(self, database_name, column_names, timeout_retry=True):
+    def _create_table_db(self, database_name, column_names, timeout_retry=True):
         """
                         Method Name: create_table_db
                         Description: This method creates a table in the given database
@@ -144,7 +131,7 @@ class DbOperation:
             # log_file = open("Training_Logs/DbTableCreateLog.txt", 'a+')
             self.logger.log(log_file, 'Initialise table creation')
             self.logger.log(log_file, 'Connecting to database.')
-            conn = self.database_connection(database_name)
+            conn = self._database_connection(database_name)
             self.logger.log(log_file, 'Connection established')
 
             # create the schema same for all tables
@@ -155,10 +142,28 @@ class DbOperation:
             else:
                 table_schema = table_schema[2::]  # remove the initial ', '
 
+            # find relevant table names to create according to good data files
+            self.logger.log(log_file, "Creating new tables")
+            table_exist = set()
+            for file in os.listdir(self.goodFilePath):
+                k = file.split('.')[0][-1]
+                if k in list('1234'):  # only certain tables are allowed
+                    table_exist.add('goodrawdata_00' + k)
+
+                else:  # that's a bad file!
+                    self.logger.log(log_file, f"Found bad file {file}. Move to bad data directory.")
+                    try:
+                        shutil.move(os.path.join(self.goodFilePath, file), self.badFilePath)
+                    except OSError:
+                        self.logger.log(
+                            log_file, f"Failed to move {file}. Perhaps it already exists in bad data directory.")
+                        self.logger.log(log_file, f"Deleting {file}.")
+                        os.remove(os.path.join(self.goodFilePath, file))
+
             # create statements and execute for tables
             future1 = []
             self.logger.log(log_file, f"Checking if tables exit, if so drop the existing tables.")
-            for name in table_name_list:
+            for name in table_exist:
                 # del statement
                 del_text = f"DROP TABLE IF EXISTS {database_name}.{name}"
                 del_stmt = SimpleStatement(del_text)
@@ -179,24 +184,6 @@ class DbOperation:
             del_meta.is_idempotent = True
             conn.execute(del_meta)
             self.logger.log(log_file, "Old meta data table also dropped")
-
-            # find relevant table names to create according to good data files
-            self.logger.log(log_file, "Creating new tables")
-            table_exist = set()
-            for file in os.listdir(self.goodFilePath):
-                k = file.split('.')[0][-1]
-                if k in list('1234'):  # only certain tables are allowed
-                    table_exist.add('goodrawdata_00' + k)
-
-                else:  # that's a bad file!
-                    self.logger.log(log_file, f"Found bad file {file}. Move to bad data directory.")
-                    try:
-                        shutil.move(os.path.join(self.goodFilePath, file), self.badFilePath)
-                    except OSError:
-                        self.logger.log(
-                            log_file, f"Failed to move {file}. Perhaps it already exists in bad data directory.")
-                        self.logger.log(log_file, f"Deleting {file}.")
-                        os.remove(os.path.join(self.goodFilePath, file))
 
             for name in table_exist:
                 # create statement
@@ -228,7 +215,7 @@ class DbOperation:
                 conn.shutdown()
             if timeout_retry:
                 self.logger.log(log_file, f'Retrying table creation.!!')
-                return self.create_table_db(database_name, column_names, timeout_retry=False)
+                return self._create_table_db(database_name, column_names, timeout_retry=False)
             else:
                 self.logger.log(log_file, f'Operation timed out while creating tables, quitting!!: str{timeout}')
                 log_file.close()
@@ -240,8 +227,8 @@ class DbOperation:
             if conn is not None:
                 conn.shutdown()
             if timeout_retry:
-                self.logger.log(log_file, f'Retrying table creation!!')
-                return self.create_table_db(database_name, column_names, timeout_retry=False)
+                self.logger.log(log_file, 'Retrying table creation!!')
+                return self._create_table_db(database_name, column_names, timeout_retry=False)
 
             else:
                 self.logger.log(log_file, f"Error: Nodes unavailable, terminating: {unavailable}")
@@ -254,12 +241,12 @@ class DbOperation:
                 conn.shutdown()
             self.logger.log(log_file, f"Error: {e}")
             log_file.close()
-            raise e
+            raise
 
         else:
             # self.logger.log(file, "Successfully created new tables.")
             log_file.close()
-            return conn  # column names contains the schema file
+            return conn
 
     def insert_into_table_good_data(self, database_name, timeout_retry=True, conc_level=5000):
 
@@ -274,6 +261,19 @@ class DbOperation:
                                On Failure: Raise Exception
         """
         log_file = open("Prediction_Logs/DbInsertLog.txt", 'a+')
+
+        # prelim checks
+        if not os.path.isdir(self.goodFilePath):
+            error = NotADirectoryError('Good file path is not a directory, exiting.')
+            raise error
+        if not [f for f in os.listdir(self.goodFilePath)
+                  if os.path.isfile(os.path.join(self.goodFilePath, f))]:
+            error = FileNotFoundError('Good file path does not contain any files, exiting.')
+            raise error
+
+        if not os.path.isdir(self.badFilePath):
+            error = NotADirectoryError('Bad file path is not a directory, exiting.')
+            raise error
         self.logger.log(log_file, 'Starting data insertion into database')
 
         if not os.path.isfile('./schema_prediction.json'):
@@ -287,29 +287,11 @@ class DbOperation:
         cols = ', '.join(column_names.keys())  # used later in query
 
         self.logger.log(log_file, 'Connecting to database and waiting for  table creation.')
-        conn = self.create_table_db(database_name, column_names)
+        conn = self._create_table_db(database_name, column_names)
         if conn is None:  # if connection fails abort immediately
             error = ConnectionError(f'Failed to create required tables in {database_name} database.')
             self.logger.log(log_file, error)
             raise error
-
-        # self.logger.log(log_file, 'Verifying existence of meta data table.')
-        # check_meta = "SELECT table_name FROM system_schema.tables " + \
-        #              f"WHERE keyspace_name='{database_name}' AND table_name='prediction_meta_data'"
-        # check_meta = SimpleStatement(check_meta)
-        # check_meta.is_idempotent = True
-        # ismeta = conn.execute(check_meta)
-        # if not ismeta[0].table_name == 'prediction_meta_data':
-        #     self.logger.log(log_file, 'Required metadata table not found in database.')
-        #     conn.shutdown()
-        #     if timeout_retry:
-        #         self.logger.log(log_file, 'Retrying....!')
-        #         return self.insert_into_table_good_data(database_name=database_name, timeout_retry=False)
-        #     else:
-        #         error = Exception('Required metadata table not found in database.')
-        #         self.logger.log(log_file, f'Error: {error}')
-        #         raise error
-        # self.logger.log(log_file, "Required metadata table exists.")
 
         good_file_path = self.goodFilePath
         bad_file_path = self.badFilePath
@@ -335,25 +317,6 @@ class DbOperation:
                     shutil.move(good_file_path + '/' + file, bad_file_path)
                     self.logger.log(log_file, f'{file} moved to bad files directory successfully.')
                     continue
-
-                # # let us check if this table exists..in db
-                # check_query = "SELECT table_name FROM system_schema.tables " + \
-                #               f"WHERE keyspace_name='{database_name}' AND table_name='{table_name}'"
-                # check_stmt = SimpleStatement(check_query)
-                # check_stmt.is_idempotent = True
-
-                # self.logger.log(log_file, f"Checking table name {table_name} in database.")
-                # check = conn.execute(check_stmt)
-                # if not check[0].table_name == table_name:
-                #     error = Exception('The required table for insertion does not exist in database.')
-                #     self.logger.log(log_file, error)
-                #     conn.shutdown()
-                #     if timeout_retry:
-                #         self.logger.log(log_file, 'Retrying data insertion.')
-                #         return self.insert_into_table_good_data(database_name, timeout_retry=False)
-                #     else:
-                #         self.logger.log(log_file, 'Aborting!')
-                #         raise error
 
                 # prepare insert stmt
                 insert_stm = f"INSERT INTO {database_name}.{table_name} ({cols}) VALUES ( {qmarks} )"
@@ -443,7 +406,7 @@ class DbOperation:
             log_file.close()
             return conn, column_names
 
-    def selecting_data_from_table_into_csv(self, database_name, timeout_retry=True, flush=True):
+    def selecting_data_from_table_into_csv(self, database_name, timeout_retry=True, flush=False):
 
         """
                         Method Name: selecting_data_from_table_into_csv
@@ -469,7 +432,7 @@ class DbOperation:
                 self.logger.log(log_file, "database_name insertion completed.")
             else:
                 self.logger.log(log_file, "Flush is False, so program will pull existing tables without insertion")
-                conn = self.database_connection(database_name)
+                conn = self._database_connection(database_name)
                 # self.logger.log(log_file, "Connection established.")
                 self.logger.log(log_file, "Manually fetching column names from schema file.")
                 # manually fetch column names, if fetched from database col names can be out of order
@@ -586,26 +549,26 @@ class DbOperation:
                             except queue.Empty:
                                 break
                         future_q.put_nowait(future)
-                else:
-                    while True:
-                        try:
-                            r = future_q.get_nowait().result()
-                            df = pd.concat([df, r._current_rows], ignore_index=True)
-                        except queue.Empty:
-                            break
 
-                    df = df[list(column_names.keys())]
-                    self.logger.log(log_file, 'Verifying against meta data.')
-                    if not df.shape[0] == total_rows:
-                        self.logger.log(log_file,
-                                        f'Warn: Verification failed for table {name}, please check the received file.')
+                while True:
+                    try:
+                        r = future_q.get_nowait().result()
+                        df = pd.concat([df, r._current_rows], ignore_index=True)
+                    except queue.Empty:
+                        break
 
-                    df.to_csv(os.path.join(self.fileFromDb, file_name), index=False)
-                    end = time.time()
-                    self.logger.log(log_file, f"Finished writing {name} to {file_name} in {int(end - start)} seconds.")
+                df = df[list(column_names.keys())]
+                self.logger.log(log_file, 'Verifying against meta data.')
+                if not df.shape[0] == total_rows:
+                    self.logger.log(log_file,
+                                    f'Warn: Verification failed for table {name}, please check the received file.')
 
-            else:
-                self.logger.log(log_file, "Successfully wrote all tables to csv files.")
+                df.to_csv(os.path.join(self.fileFromDb, file_name), index=False, header=False)
+                end = time.time()
+                self.logger.log(log_file, f"Finished writing {name} to {file_name} in {int(end - start)} seconds.")
+
+
+            self.logger.log(log_file, "Successfully wrote all tables to csv files.")
 
         except (OperationTimedOut, Timeout) as timeout:
             self.logger.log(log_file, f'Operation timed out while writing tables: str{timeout}', )
@@ -613,7 +576,7 @@ class DbOperation:
             if conn is not None:
                 conn.shutdown()
             if timeout_retry:
-                self.logger.log(log_file, f'Retrying write tables to csv!!')
+                self.logger.log(log_file, 'Retrying write tables to csv!!')
                 return self.selecting_data_from_table_into_csv(database_name, timeout_retry=False, flush=flush)
             else:
                 self.logger.log(log_file, f'Unable to export table to csv file. Quitting: {timeout}')

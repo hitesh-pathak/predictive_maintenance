@@ -1,10 +1,12 @@
-import os.path
-import pandas as pd
-import numpy as np
 import math
+import os.path
+
+import numpy as np
+import pandas as pd
+from pandas.api.types import is_numeric_dtype
 from sklearn.impute import KNNImputer
 from sklearn.preprocessing import StandardScaler
-from pandas.api.types import is_numeric_dtype
+
 # from imblearn.over_sampling import SMOTE
 
 class Preprocessor:

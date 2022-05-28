@@ -1,6 +1,7 @@
 '''
 This module takes care of data ingestion.
 '''
+import json
 import os
 import re
 
@@ -35,6 +36,18 @@ class DataGetter:
             error = FileNotFoundError('Loading directory does not contain any files, exiting.')
             self.logger_object.log(self.file_object, f"Error: {error}")
             raise error
+
+        # load column headers for later use
+        if not os.path.isfile('schema_prediction.json'):
+            error = FileNotFoundError('Required schema file not found.')
+            self.logger_object.log(self.file_object, f"{error}")
+            raise error
+
+        with open('schema_prediction.json', 'r', encoding='utf-8') as schema:
+            dic = json.load(schema)
+            column_names = dic['ColName']
+
+        self.column_names = column_names
 
     def get_data(self):
         """
@@ -74,7 +87,7 @@ class DataGetter:
             def data_gen():
                 for file in onlyfiles:
                     file_path = os.path.join(self.loading_directory, file)
-                    df = pd.read_csv(file_path)
+                    df = pd.read_csv(file_path, header=None, names=self.column_names.keys())
                     yield df, file
 
             self.logger_object.log(self.file_object,

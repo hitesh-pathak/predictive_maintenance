@@ -15,14 +15,21 @@ app = FastAPI()
 # set up redis queue
 q = Queue(connection=conn, default_timeout=1000)
 
-@app.post('/predict', status_code=status.HTTP_202_ACCEPTED, response_model=BackgroundTask)
+@app.post('/default', status_code=status.HTTP_202_ACCEPTED, response_model=BackgroundTask)
 async def start_prediction(filepath: FilePath):
     '''
         Create a prediction job and return the job id.
     '''
 
     job = q.enqueue_call(func=gen_prediction, args=(filepath.filepath, ), result_ttl=1000)
+    
     return {'job_id': str(job.get_id()), 'status': 'Processing'}
+
+
+@app.post('/fetch', status_code=status.HTTP_202_ACCEPTED, response_model=BackgroundTask)
+async def start_fetching():
+    pass
+    # !!! abort this trying something else
 
 
 @app.get('/results/{job_id}', status_code=status.HTTP_200_OK, response_model=Result,
