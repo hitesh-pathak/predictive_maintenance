@@ -1,0 +1,3 @@
+#! /bin/bash
+python -m streamlit run dashboard.py &
+python worker.py
