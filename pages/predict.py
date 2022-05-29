@@ -29,8 +29,11 @@ def app(queue, connection):
 
     if submitted:
         if check_method == methods[0]:
+
             st.info('Importing files from database')
             importer = PredictionValidation()
+            # this is a deterministic function so cache it
+
             manager(queue, connection,
                     func=importer.pred_fetch, args=None, timeout=900, max_wait=1000,
                     failure_msg='Importing files from database failed',
@@ -38,6 +41,7 @@ def app(queue, connection):
 
             st.info('Generating predictions from imported data')
             predictor = Prediction('Prediction_FileFromDB')
+            # this depends upon the files, so let's not cache it
             manager(queue, connection,
                     func=predictor.prediction_from_model, args=None, timeout=300, max_wait=400,
                     failure_msg='Failed to generate predictions.',

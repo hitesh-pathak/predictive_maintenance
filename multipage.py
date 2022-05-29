@@ -10,7 +10,7 @@ class Multipage:
     """
 
     def __init__(self) -> None:
-        self.pages = []
+        self.pages = dict()
 
     def add_page(self, title: str, func: Callable,
                  args: tuple[Any, ...] | None = None,
@@ -29,21 +29,18 @@ class Multipage:
         if kwargs is None:
             kwargs = dict()
 
-        self.pages.append({
-
-            'title': title,
+        self.pages[title] = {
             'function': func,
             'args': args,
             'kwargs': kwargs,
-        })
+        }
 
     def run(self):
         """This method handles page navigation"""
 
-        page = st.sidebar.selectbox(
+        current_page = st.sidebar.selectbox(
             'Go to page:',
-            self.pages,
-            format_func=lambda x: x['title']
+            self.pages.keys(),
         )
-
-        return page['function'](*page['args'], **page['kwargs'])
+        current_app = self.pages[current_page]
+        current_app['function'](*current_app['args'], **current_app['kwargs'])

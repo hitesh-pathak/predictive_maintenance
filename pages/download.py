@@ -12,6 +12,6 @@ def app(path: str = 'Prediction_output',
         _ = st.download_button(
             label=button_text,
             data=file,
-            filename=name,
+            file_name=name,
             mime='application/zip'
         )
