@@ -406,7 +406,7 @@ class DbOperation:
             log_file.close()
             return conn, column_names
 
-    def selecting_data_from_table_into_csv(self, database_name, timeout_retry=True, flush=False):
+    def selecting_data_from_table_into_csv(self, database_name, timeout_retry=True, flush=False, conc_level=500):
 
         """
                         Method Name: selecting_data_from_table_into_csv
@@ -524,8 +524,6 @@ class DbOperation:
                 self.logger.log(log_file, f"Writing table {name} to {file_name}")
 
                 # find the corresponding prediction data file
-
-                conc_level = 1000
 
                 params = [(k,) for k in range(1, unit_nr_range+1)]
 
