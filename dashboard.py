@@ -24,4 +24,8 @@ st.title('RUL predictor 3000')
 
 
 # add needed sections in the app
-app.add_page('Predict RUL', predict.app, kwargs={'queue': q, 'connection': conn})
+app.add_page('Predict RUL', predict.app, args=(q, conn))
+
+
+# run the app
+app.run()

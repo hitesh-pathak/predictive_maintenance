@@ -13,7 +13,7 @@ class Multipage:
         self.pages = []
 
     def add_page(self, title: str, func: Callable,
-                 args: tuple[Any] | None = None,
+                 args: tuple[Any, ...] | None = None,
                  kwargs: dict[Any] | None = None) -> None:
         """
         This module adds the page to the main app.
