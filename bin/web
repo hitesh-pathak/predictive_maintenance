@@ -1,4 +1,4 @@
 #! /bin/bash
-sh config.sh
+sh streamlit_config.sh
 python -m streamlit run dashboard.py &
 python worker.py
