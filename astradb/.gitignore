@@ -1,0 +1,3 @@
+# this directory contains the credentials to connect to the datastax astradb database service
+*
+!.gitignore
